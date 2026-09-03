@@ -75,10 +75,13 @@ class SessionDiscoveryTests(unittest.TestCase):
             self.assertEqual(relay.discover_session_id(str(workdir), claude_home=home), "22222222-2222-2222-2222-222222222222")
             self.assertIsNone(relay.discover_session_id(str(home / "nowhere"), claude_home=home))
 
-    def test_resume_command_uses_airlock_route_names(self) -> None:
-        self.assertEqual(relay.resume_command("claude-fable-5-1[1m]", "abc"), "airlock hybrid fable --resume abc")
-        self.assertEqual(relay.resume_command("gpt-5.6-sol", None), "airlock hybrid sol --continue")
-        self.assertIsNone(relay.resume_command("not-a-model", "abc"))
+    def test_resume_command_per_source(self) -> None:
+        self.assertEqual(relay.resume_command("airlock", "claude-fable-5-1[1m]", "abc"), "airlock hybrid fable --resume abc")
+        self.assertEqual(relay.resume_command("airlock", "gpt-5.6-sol", None), "airlock hybrid sol --continue")
+        self.assertIsNone(relay.resume_command("airlock", "not-a-model", "abc"))
+        self.assertEqual(relay.resume_command("claude-code", "claude-sonnet-5[1m]", "abc"), "claude --resume abc --model sonnet")
+        self.assertEqual(relay.resume_command("claude-code", "claude-haiku-4-5", None), "claude --continue --model haiku")
+        self.assertIsNone(relay.resume_command("generic", "gpt-5.6-sol", "abc"))
 
 
 class ApprovalsTests(unittest.TestCase):
@@ -110,9 +113,79 @@ class ApprovalsTests(unittest.TestCase):
         self.assertEqual(approvals.consume_resume("H-1", nonce), "no_executed_handoff")
 
 
+class IngestTests(unittest.TestCase):
+    def test_claude_code_hooks_compose_a_blocked_report(self) -> None:
+        rt = relay.IngestedRuntime("claude-code", "claude-opus-5[1m]", "anthropic", list(relay.CLAUDE_CODE_MODELS))
+        rt.ingest({"event": {"kind": "SessionStart", "session_id": "s-1", "cwd": "/w", "source": "startup"}})
+        rt.ingest({"event": {"kind": "PostToolUse", "tool_name": "Bash"}})
+        report, models = rt.diagnostics()
+        self.assertFalse(relay.is_blocked(report))
+        self.assertEqual(rt.session_id, "s-1")
+        rt.ingest({"event": {"kind": "StopFailure", "failure": "rate_limit"}})
+        report, models = rt.diagnostics()
+        self.assertTrue(relay.is_blocked(report))
+        self.assertEqual(report["rate_limit_provider_cooldowns"], ["anthropic"])
+        self.assertEqual(report["events"][-1]["source"], "claude-code")
+        self.assertIn("rate limit", report["events"][-1]["summary"])
+        self.assertEqual(models, list(relay.CLAUDE_CODE_MODELS))
+
+    def test_model_level_failures_only_cool_the_active_model(self) -> None:
+        rt = relay.IngestedRuntime("generic", "gpt-5.6-sol", "openai", ["gpt-5.6-sol", "gpt-5.6-terra"])
+        rt.ingest({"event": {"kind": "failure", "failure": "overloaded"}})
+        report, _ = rt.diagnostics()
+        self.assertEqual(report["rate_limit_cooldowns"], ["gpt-5.6-sol"])
+        self.assertEqual(report["rate_limit_provider_cooldowns"], [])
+        self.assertTrue(relay.is_blocked(report))
+        rt.ingest({"event": {"kind": "SessionStart"}})
+        report, _ = rt.diagnostics()
+        self.assertFalse(relay.is_blocked(report))
+
+    def test_state_documents_update_the_runtime(self) -> None:
+        rt = relay.IngestedRuntime("generic", "x", "openai", [])
+        rt.ingest({"state": {"session_id": "abc", "cwd": "/w", "model": "gpt-5.6-terra", "provider": "openai", "models": ["gpt-5.6-terra", "gpt-5.6-luna"]}})
+        report, models = rt.diagnostics()
+        self.assertEqual(report["root_model"], "gpt-5.6-terra")
+        self.assertEqual(models, ["gpt-5.6-terra", "gpt-5.6-luna"])
+        self.assertEqual(rt.session_id, "abc")
+
+    def test_events_are_bounded_and_summaries_truncated(self) -> None:
+        rt = relay.IngestedRuntime("generic", "m", "openai", [])
+        for _ in range(600):
+            rt.ingest({"event": {"kind": "turn_completed", "summary": "x" * 1000}})
+        report, _ = rt.diagnostics()
+        self.assertEqual(len(report["events"]), 500)
+        self.assertEqual(len(report["events"][0]["summary"]), 200)
+
+    def test_build_state_from_ingested_report(self) -> None:
+        rt = relay.IngestedRuntime("claude-code", "claude-opus-5[1m]", "anthropic", list(relay.CLAUDE_CODE_MODELS))
+        rt.ingest({"event": {"kind": "StopFailure", "failure": "rate_limit"}})
+        report, models = rt.diagnostics()
+        state = relay.build_state(report, models, router_url="ingest:claude-code", task="t", workdir="w", session_id="s", source="claude-code")
+        self.assertEqual(state["bridge"]["source"], "claude-code")
+        self.assertTrue(state["cooldown_until"])
+        self.assertEqual(state["diagnostics"]["profile"], "claude-code")
+
+
+class WebhookTests(unittest.TestCase):
+    def test_payload_shape_follows_destination(self) -> None:
+        body, headers = relay.webhook_payload("https://hooks.slack.com/services/x", "T", "B", "L")
+        self.assertEqual(headers["Content-Type"], "application/json")
+        self.assertIn("*T*", json.loads(body)["text"])
+        body, headers = relay.webhook_payload("https://ntfy.sh/topic", "T", "B", "L")
+        self.assertEqual(headers["Title"], "T")
+        self.assertEqual(headers["Click"], "L")
+        body, headers = relay.webhook_payload("https://example.com/hook", "T", "B", "L")
+        self.assertEqual(json.loads(body)["kind"], "relay.session_blocked")
+
+
 class ActionTests(unittest.TestCase):
+    def test_non_airlock_sources_record_without_a_command(self) -> None:
+        result = relay.apply_handoff("claude-code", "claude-opus-5[1m]", "claude-sonnet-5[1m]")
+        self.assertTrue(result["applied"])
+        self.assertIsNone(result["command"])
+
     def test_unknown_routes_are_refused(self) -> None:
-        result = relay.apply_handoff("claude-opus-5[1m]", "not-a-model")
+        result = relay.apply_handoff("airlock", "claude-opus-5[1m]", "not-a-model")
         self.assertFalse(result["applied"])
         self.assertEqual(result["reason"], "unknown_route_name")
 
@@ -120,7 +193,7 @@ class ActionTests(unittest.TestCase):
         original = relay.shutil.which
         relay.shutil.which = lambda _name: None
         try:
-            result = relay.apply_handoff("claude-opus-5[1m]", "claude-fable-5-1[1m]")
+            result = relay.apply_handoff("airlock", "claude-opus-5[1m]", "claude-fable-5-1[1m]")
         finally:
             relay.shutil.which = original
         self.assertFalse(result["applied"])

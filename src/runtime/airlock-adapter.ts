@@ -28,6 +28,8 @@ export interface AirlockActionEvent {
   kind: string;
   timestamp: string;
   source?: EventSource;
+  /** Ingested runtimes may send a ready-made summary. */
+  summary?: string;
   [key: string]: unknown;
 }
 
@@ -69,6 +71,7 @@ export function summarizeAirlockEvent(event: AirlockEvent): string {
     return `${shortModel(event.model)} returned ${event.status} (${event.outcome})`;
   }
   const e = event;
+  if (typeof e.summary === "string" && e.summary.trim()) return e.summary.slice(0, 200);
   const m = (k: string) => shortModel(String(e[k] ?? "?"));
   switch (e.kind) {
     case "session_model_pinned":
@@ -104,6 +107,7 @@ export function airlockEventsToRelay(events: AirlockEvent[], startId = 1): Relay
   return events.map((event, index) => {
     const detail: Record<string, unknown> = { ...event };
     delete detail.source;
+    delete detail.summary;
     return {
       id: startId + index,
       at: event.timestamp,
@@ -129,6 +133,7 @@ export const ROUTE_CATALOG: RouteCatalogEntry[] = [
   { id: "claude-opus-5[1m]", label: "Claude Opus 5", provider: "anthropic", tier: "frontier", metered: false, contextWindow: 1_000_000 },
   { id: "claude-sonnet-5[1m]", label: "Claude Sonnet 5", provider: "anthropic", tier: "general", metered: false, contextWindow: 1_000_000 },
   { id: "claude-fable-5-1[1m]", label: "Claude Fable 5.1", provider: "anthropic", tier: "frontier", metered: true, contextWindow: 1_000_000 },
+  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5", provider: "anthropic", tier: "utility", metered: false, contextWindow: 200_000 },
   { id: "gpt-5.6-sol", label: "GPT-5.6 Sol", provider: "openai", tier: "frontier", metered: false, contextWindow: 400_000 },
   { id: "gpt-5.6-terra", label: "GPT-5.6 Terra", provider: "openai", tier: "general", metered: false, contextWindow: 400_000 },
   { id: "gpt-5.6-luna", label: "GPT-5.6 Luna", provider: "openai", tier: "utility", metered: false, contextWindow: 400_000 },

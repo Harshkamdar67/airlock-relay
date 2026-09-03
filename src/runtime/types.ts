@@ -51,12 +51,12 @@ export interface SessionState {
   startedAt: string;
 }
 
-export type EventSource = "airlock" | "scenario" | "relay";
+export type EventSource = "airlock" | "scenario" | "relay" | "claude-code" | "generic";
 
 export interface RelayEvent {
   id: number;
   at: string;
-  /** airlock = copied from a real router report, scenario = seeded for the demo, relay = produced by this page. */
+  /** airlock = from a real router report, scenario = seeded for the demo, relay = produced by this page, claude-code / generic = ingested from another runtime through the bridge. */
   source: EventSource;
   kind: string;
   summary: string;

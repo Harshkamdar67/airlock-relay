@@ -51,6 +51,18 @@ Switch the scenario selector to **Context overflow**. A GPT-5.6 Sol session has 
 
 Every route also carries the provider's plan headroom (used percent of the 5-hour window and when it resets), the same numbers Airlock reads from Claude Code's status line, so the agent can avoid proposing a route that is about to hit its own limit.
 
+## Works with
+
+| Runtime | How Relay gets its facts | Block signal | Resume |
+| --- | --- | --- | --- |
+| **Airlock** | The router's loopback `GET /diagnostics` and `GET /v1/models`, polled by the bridge. | Router cooldown lists and chain-exhausted events. | `airlock hybrid <route> --resume <session-id>` |
+| **Plain Claude Code** | Claude Code hooks POST to the bridge through `bridge/claude_code_hook.py` (settings snippet in `bridge/hooks.example.json`). | The `StopFailure` hook: rate limit, overloaded, billing, server error, model not found. | `claude --resume <session-id> --model <alias>` |
+| **Any agent** | Your runtime POSTs small JSON `state` and `event` documents to `relay/api/ingest`. Contract in [docs/ingest-contract.md](docs/ingest-contract.md). | An event with `failure` set. | Whatever your runtime supports; the executed handoff is on the page. |
+
+In every case the page, the seven WebMCP tools, the approval model, and the replay are identical. Only the adapter changes.
+
+**Notifications.** When the session becomes blocked, the bridge shows a desktop notification (Windows, macOS, Linux) and, with `--notify URL`, POSTs to a webhook: ntfy topics, Slack and Discord incoming webhooks, or any JSON receiver, each in the shape that destination expects.
+
 ## Demo mode and live mode
 
 The hosted page runs in **demo mode**. Its data comes from [fixtures/airlock-diagnostics-2026-09-03.json](fixtures/airlock-diagnostics-2026-09-03.json), an export of the real `GET /diagnostics` report from an Airlock router on 2026-09-03. Events tagged `airlock` were copied verbatim; events tagged `scenario` were added, in the router's exact event shapes, to put the session into the blocked state the demo starts from. The runtime that "resumes" is simulated, and the session card's task, id, checkpoint, and worktree are invented for the demo; only the router data underneath is real. The page labels the origin of every event.
@@ -67,9 +79,9 @@ python bridge/relay.py --router-url http://127.0.0.1:PORT --workdir ~/work/app
 
 What the bridge does, in order:
 
-1. **Discovers the session.** The router URL comes from `AIRLOCK_SESSION_ROUTER_URL`; the Claude Code session id comes from the transcript directory Claude Code keeps for the working directory.
+1. **Discovers the session.** The router URL comes from `AIRLOCK_SESSION_ROUTER_URL` (or `--source claude-code` / `--source generic` for the other adapters); the Claude Code session id comes from the transcript directory Claude Code keeps for the working directory.
 2. **Feeds the page real facts.** A same-origin `relay/api/state` endpoint is fed by the router's existing loopback `GET /diagnostics` and `GET /v1/models`: profile, active model, cooldowns, every request and failover event, context size from the last request. The Airlock router is not modified and stays bound to 127.0.0.1.
-3. **Tells you when it blocks.** With `--notify`, the moment the router reports the root model or its provider on cooldown, the bridge POSTs a push notification (ntfy-style) with the Relay link. That is the 2 AM use case.
+3. **Tells you when it blocks.** The moment the runtime reports the active model or its provider unusable, the bridge shows a desktop notification and, with `--notify`, POSTs to your webhook with the Relay link. That is the 2 AM use case.
 4. **Records your approval itself.** Your Approve click is also sent to the bridge, which returns a one-shot nonce bound to the proposal, revision, and target. A page script cannot forge it.
 5. **Persists the decision with Airlock's own command.** When the agent executes with a matching nonce, the bridge runs `airlock handoff set <from> <to>`, so the approved order lives in Airlock's declared failover chain. Otherwise it refuses with a reason, and the page shows exactly what happened.
 6. **Resumes the conversation on the approved model.** After execution the bridge prepares `airlock hybrid <route> --resume <session-id>`. A human-only **Resume in a new terminal** button opens a terminal in the working directory running that command, which relaunches the same Claude Code conversation with the approved orchestrator. Airlock's launcher forwards Claude flags, so this is a supported path, and the button is gated by a second one-shot nonce. Exit the blocked session first; it is stuck anyway.

@@ -1,0 +1,20 @@
+{
+  "_about": "Drop these into .claude/settings.local.json (project) or ~/.claude/settings.json (all projects). Replace RELAY_HOOK with the absolute path to bridge/claude_code_hook.py. Each hook exits within a second and never blocks Claude Code.",
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] }],
+    "PostToolUse": [{ "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] }],
+    "StopFailure": [
+      { "matcher": "rate_limit", "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] },
+      { "matcher": "overloaded", "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] },
+      { "matcher": "billing_error", "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] },
+      { "matcher": "server_error", "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] },
+      { "matcher": "model_not_found", "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] },
+      { "matcher": "max_output_tokens", "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] }
+    ],
+    "PreCompact": [{ "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] }],
+    "PostCompact": [{ "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] }],
+    "PostModelSwitch": [{ "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] }],
+    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "python RELAY_HOOK", "timeout": 3 }] }]
+  }
+}
