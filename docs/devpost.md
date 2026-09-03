@@ -70,6 +70,14 @@ Chrome serialises whatever a tool's `execute` returns into a JSON string, so ret
 
 Ship the bridge as `airlock relay` inside Airlock itself, read live plan headroom from Claude Code's status line so the route data in live mode matches the demo, and let the agent subscribe to events instead of polling.
 
+## Gallery images (upload in this order)
+
+1. `docs/screenshot-blocked.png` — blocked session, tools registered, prompt ready.
+2. `docs/screenshot-after-handoff.png` — proposal edited by the human, approved, executed; replay and activity visible.
+3. `docs/screenshot-overflow.png` — context overflow scenario with routes marked fit / no room.
+4. `docs/screenshot-live-mode.png` — live mode against a real Airlock router with the resume command.
+5. `docs/screenshot-claude-code.png` — plain Claude Code session fed by hooks.
+
 ## Testing instructions (Devpost field)
 
 1. Open https://harshkamdar67.github.io/airlock-relay/ in the ChatGPT desktop app's browser, or in Chrome 149+ with chrome://flags/#enable-webmcp-testing enabled and relaunched. The top bar should read "WebMCP: 7 tools registered".

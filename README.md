@@ -7,7 +7,9 @@
 Live demo: **https://harshkamdar67.github.io/airlock-relay/**
 Built for [The WebMCP Challenge](https://webmcp.devpost.com/) on top of [Airlock](https://github.com/Harshkamdar67/Airlock). What is new for the challenge is listed in [WEBMCP_CHALLENGE.md](WEBMCP_CHALLENGE.md).
 
-![Airlock Relay after a handoff](docs/screenshot-after-handoff.png)
+![Airlock Relay, blocked session waiting for a proposal](docs/screenshot-blocked.png)
+
+![Airlock Relay after a handoff the human edited and approved](docs/screenshot-after-handoff.png)
 
 ## The problem
 
@@ -88,7 +90,9 @@ What the bridge does, in order:
 
 Nothing here restarts a process behind your back. The agent inspects and proposes, you approve, Airlock's own commands do the work, and the page shows the receipts.
 
-![Live mode against a real router](docs/screenshot-live-mode.png)
+![Live mode against a real Airlock router, after an executed handoff with the resume command ready](docs/screenshot-live-mode.png)
+
+![Plain Claude Code session blocked by a rate limit, fed by hooks](docs/screenshot-claude-code.png)
 
 ## How WebMCP is used
 
