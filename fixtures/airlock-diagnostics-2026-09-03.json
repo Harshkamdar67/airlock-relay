@@ -1,0 +1,28 @@
+{
+  "_about": "Airlock router diagnostics report used by the Relay demo. Events marked source=airlock were copied verbatim from a real hybrid-anthropic-root Airlock session on 2026-09-03 (GET /diagnostics on the loopback router; instance id redacted). Events marked source=scenario were seeded to put the session into the blocked state the demo starts from; they use the exact event shapes the router emits.",
+  "instance_id": "REDACTED",
+  "profile": "hybrid-anthropic-root",
+  "root_model": "claude-opus-5[1m]",
+  "root_provider": "anthropic",
+  "rate_limit_cooldowns": ["claude-opus-5[1m]", "claude-sonnet-5[1m]", "grok-4.6"],
+  "rate_limit_provider_cooldowns": ["anthropic"],
+  "events": [
+    {"kind":"session_model_pinned","profile":"hybrid-anthropic-root","model":"claude-opus-5[1m]","provider":"anthropic","timestamp":"2026-09-03T06:01:48Z","source":"scenario"},
+    {"provider":"anthropic","model":"claude-sonnet-5","status":200,"request_bytes":42233,"response_bytes":1418,"duration_ms":2263,"outcome":"completed","usage":{"input_tokens":14543,"output_tokens":22,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"timestamp":"2026-09-03T06:03:53Z","source":"airlock"},
+    {"provider":"anthropic","model":"claude-sonnet-5","status":200,"request_bytes":181264,"response_bytes":567,"duration_ms":2445,"outcome":"completed","usage":{"input_tokens":90,"output_tokens":9,"cache_creation_input_tokens":62470,"cache_read_input_tokens":0},"timestamp":"2026-09-03T06:04:33Z","source":"airlock"},
+    {"provider":"anthropic","model":"claude-sonnet-5","status":200,"request_bytes":181813,"response_bytes":567,"duration_ms":1857,"outcome":"completed","usage":{"input_tokens":90,"output_tokens":9,"cache_creation_input_tokens":171,"cache_read_input_tokens":62470},"timestamp":"2026-09-03T06:04:35Z","source":"airlock"},
+    {"provider":"anthropic","model":"claude-fable-5-1","status":200,"request_bytes":214467,"response_bytes":45285,"duration_ms":44616,"outcome":"completed","usage":{"input_tokens":2,"output_tokens":3063,"cache_creation_input_tokens":76376,"cache_read_input_tokens":0},"timestamp":"2026-09-03T06:04:35Z","source":"airlock"},
+    {"provider":"anthropic","model":"claude-sonnet-5","status":200,"request_bytes":48783,"response_bytes":5021,"duration_ms":8618,"outcome":"completed","usage":{"input_tokens":16495,"output_tokens":701,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"timestamp":"2026-09-03T06:04:43Z","source":"airlock"},
+    {"provider":"anthropic","model":"claude-sonnet-5","status":200,"request_bytes":21730,"response_bytes":5284,"duration_ms":8804,"outcome":"completed","usage":{"input_tokens":8246,"output_tokens":814,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"timestamp":"2026-09-03T06:04:45Z","source":"airlock"},
+    {"provider":"anthropic","model":"claude-opus-5[1m]","status":200,"request_bytes":402118,"response_bytes":38112,"duration_ms":51204,"outcome":"completed","usage":{"input_tokens":1210,"output_tokens":2984,"cache_creation_input_tokens":9120,"cache_read_input_tokens":106310},"timestamp":"2026-09-03T06:29:02Z","source":"scenario"},
+    {"provider":"anthropic","model":"claude-opus-5[1m]","status":429,"request_bytes":409377,"response_bytes":0,"duration_ms":812,"outcome":"upstream_rate_limited","timestamp":"2026-09-03T06:31:04Z","source":"scenario"},
+    {"kind":"rate_limit_failover_attempted","from_model":"claude-opus-5[1m]","to_model":"claude-sonnet-5[1m]","timestamp":"2026-09-03T06:31:04Z","source":"scenario"},
+    {"provider":"anthropic","model":"claude-sonnet-5[1m]","status":429,"request_bytes":409377,"response_bytes":0,"duration_ms":640,"outcome":"upstream_rate_limited","timestamp":"2026-09-03T06:31:05Z","source":"scenario"},
+    {"kind":"rate_limit_provider_cooldown","provider":"anthropic","model":"claude-sonnet-5[1m]","timestamp":"2026-09-03T06:31:05Z","source":"scenario"},
+    {"kind":"rate_limit_chain_exhausted","model":"claude-opus-5[1m]","last_model":"claude-sonnet-5[1m]","models_considered":2,"retry_after":840,"timestamp":"2026-09-03T06:31:05Z","source":"scenario"}
+  ],
+  "summary": [
+    {"provider":"anthropic","model":"claude-opus-5","requests":31,"completed":30,"errors":1,"usage_events":30,"input_tokens":18422,"output_tokens":61233,"cache_creation_input_tokens":221760,"cache_read_input_tokens":2814092},
+    {"provider":"anthropic","model":"claude-sonnet-5","requests":22,"completed":21,"errors":1,"usage_events":21,"input_tokens":67914,"output_tokens":7812,"cache_creation_input_tokens":66849,"cache_read_input_tokens":905332}
+  ]
+}
