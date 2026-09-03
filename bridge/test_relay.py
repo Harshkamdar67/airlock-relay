@@ -84,6 +84,28 @@ class SessionDiscoveryTests(unittest.TestCase):
         self.assertIsNone(relay.resume_command("generic", "gpt-5.6-sol", "abc"))
 
 
+class DiscoveryTests(unittest.TestCase):
+    NETSTAT = """
+  TCP    0.0.0.0:135            0.0.0.0:0              LISTENING       1234
+  TCP    127.0.0.1:63071        0.0.0.0:0              LISTENING       5678
+  TCP    127.0.0.1:4173         0.0.0.0:0              LISTENING       9999
+  TCP    127.0.0.1:52011        127.0.0.1:63071        ESTABLISHED     5678
+  TCP    [::1]:8093             [::]:0                 LISTENING       4321
+"""
+
+    def test_listening_ports_are_parsed_from_netstat(self) -> None:
+        self.assertEqual(relay.listening_loopback_ports(self.NETSTAT), [4173, 8093, 63071])
+
+    def test_discovery_picks_the_router_with_the_newest_event(self) -> None:
+        reports = {
+            "http://127.0.0.1:4173": None,
+            "http://127.0.0.1:8093": {"events": [{"timestamp": "2026-09-03T06:00:00Z"}]},
+            "http://127.0.0.1:63071": {"events": [{"timestamp": "2026-09-03T07:00:00Z"}]},
+        }
+        self.assertEqual(relay.discover_router_url([4173, 8093, 63071], probe=lambda url: reports.get(url)), "http://127.0.0.1:63071")
+        self.assertIsNone(relay.discover_router_url([4173], probe=lambda url: None))
+
+
 class ApprovalsTests(unittest.TestCase):
     def test_handoff_without_recorded_approval_is_refused(self) -> None:
         approvals = relay.Approvals()

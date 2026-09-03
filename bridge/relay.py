@@ -125,6 +125,57 @@ def resume_command(source: str, target_model: str, session_id: str | None) -> st
 
 # ---- Airlock source --------------------------------------------------------
 
+def listening_loopback_ports(netstat_output: str | None = None) -> list[int]:
+    """Loopback TCP ports something is listening on, from netstat/ss output."""
+    text = netstat_output
+    if text is None:
+        try:
+            if platform.system() == "Windows":
+                text = subprocess.run(["netstat", "-ano", "-p", "tcp"], capture_output=True, text=True, timeout=10, check=False).stdout
+            else:
+                text = subprocess.run(["ss", "-ltn"], capture_output=True, text=True, timeout=10, check=False).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            return []
+    ports: set[int] = set()
+    for line in text.splitlines():
+        if "LISTEN" not in line.upper():
+            continue
+        for match in re.finditer(r"(?:127\.0\.0\.1|\[::1\]|localhost):(\d{2,5})", line):
+            ports.add(int(match.group(1)))
+    return sorted(ports)
+
+
+def discover_router_url(ports: list[int] | None = None, probe=None) -> str | None:
+    """Find a running Airlock router by its Server header on GET /healthz.
+
+    With several candidates, the one whose diagnostics carry the most recent
+    event wins, which is the session that is actually busy."""
+    candidates = ports if ports is not None else listening_loopback_ports()
+
+    def default_probe(url: str) -> dict[str, Any] | None:
+        try:
+            with urllib.request.urlopen(url + "/healthz", timeout=0.6) as response:  # noqa: S310 loopback only
+                if not str(response.headers.get("Server", "")).startswith("AirlockRouter"):
+                    return None
+            with urllib.request.urlopen(url + "/diagnostics", timeout=2) as response:  # noqa: S310 loopback only
+                return json.load(response)
+        except Exception:  # noqa: BLE001 anything listening locally may answer with garbage
+            return None
+
+    probe = probe or default_probe
+    best: tuple[str, str] | None = None
+    for port in candidates:
+        url = f"http://127.0.0.1:{port}"
+        report = probe(url)
+        if report is None:
+            continue
+        events = report.get("events") or []
+        latest = str(events[-1].get("timestamp", "")) if events else ""
+        if best is None or latest > best[1]:
+            best = (url, latest)
+    return best[0] if best else None
+
+
 def is_blocked(diagnostics: dict[str, Any]) -> bool:
     root_model = short_model(str(diagnostics.get("root_model") or ""))
     root_provider = str(diagnostics.get("root_provider") or "")
@@ -707,6 +758,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--open", action="store_true", help="Open the page in the default browser.")
     parser.add_argument("--dry-run", action="store_true", help="Prepare but never launch the resume terminal.")
     args = parser.parse_args(argv)
+    if not args.router_url and args.source in (None, "airlock"):
+        found = discover_router_url()
+        if found:
+            args.router_url = found
+            print(f"relay: found a running Airlock router at {found}")
     source = args.source or ("airlock" if args.router_url else "claude-code")
     dist = Path(args.dist)
     if not (dist / "index.html").exists():
