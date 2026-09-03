@@ -40,7 +40,7 @@ The human sees the session (task, active model, blocked or running, context, che
 
 The agent sees the same state through seven WebMCP tools: `get_session`, `get_events`, `get_routes`, `prepare_handoff`, `get_handoff`, `execute_handoff`, and `get_replay`. It inspects what went wrong, proposes a handoff to a ready non-metered route, and is refused if it tries to execute early. The human can change the target in the page, for example to a metered Claude route, and approve. The agent re-reads the proposal, sees the human's change and the fact that the human accepted metered usage, and executes with the approval token. The session resumes from its checkpoint and the replay shows who did what, in order.
 
-There is no approve tool on purpose. Approve is a button. Approval issues a token bound to the proposal's revision, and any edit revokes it, so "the human decides" is enforced by the page rather than by convention.
+There is no approve tool on purpose. Approve is a button. Approval issues a token bound to the proposal's revision, and any edit revokes it, so "the human decides" is enforced by the page rather than by convention. In live mode the local bridge records the approval too and refuses to run the real Airlock command without its own one-shot nonce.
 
 ### How WebMCP is used
 
@@ -56,7 +56,7 @@ After: the page declares what a session, a route, and a handoff are. The agent d
 
 ### Real data, honestly labelled
 
-The hosted demo is built from a real `GET /diagnostics` export from an Airlock router on 2026-09-03. Events copied verbatim are tagged `airlock`; events seeded to put the session into the blocked state are tagged `scenario`, in the router's exact event shapes; events produced by the page are tagged `relay`. A 200-line standard-library Python bridge runs the same page in live mode against a real Airlock session on your machine, fed by the router's existing loopback endpoints, and applies an approved handoff with Airlock's own `airlock handoff set` command.
+The hosted demo is built from a real `GET /diagnostics` export from an Airlock router on 2026-09-03. Events copied verbatim are tagged `airlock`; events seeded to put the session into the blocked state are tagged `scenario`, in the router's exact event shapes; events produced by the page are tagged `relay`. The demo session card's task, checkpoint, and worktree are invented; the router data under it is real. A standard-library Python bridge runs the same page in live mode against a real Airlock session on your machine, fed by the router's existing loopback endpoints, and applies an approved handoff with Airlock's own `airlock handoff set` command once the human's approval is recorded on the bridge side.
 
 ### What is new for the challenge
 

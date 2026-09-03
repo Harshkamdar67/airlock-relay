@@ -26,4 +26,5 @@ No Airlock source is vendored here. The Airlock repository was not modified for 
 ## Honesty notes
 
 - The hosted demo simulates the runtime after loading real router data. The page labels every event as `airlock` (copied from a real report), `scenario` (seeded), or `relay` (produced by this page).
-- In live mode the bridge reports real router state and persists the approved chain order with Airlock's own command. It does not restart a running Claude Code process; that is the launcher's job in Airlock and is out of scope here.
+- The demo session card's task, id, checkpoint, and worktree are invented. The events, cooldown lists, and usage totals underneath come from the router export.
+- In live mode the bridge reports real router state, records the human's approval itself, and persists the approved chain order with Airlock's own command only when the page presents the matching one-shot nonce. It does not restart a running Claude Code process; that is the launcher's job in Airlock and is out of scope here.

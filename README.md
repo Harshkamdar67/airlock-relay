@@ -45,7 +45,7 @@ No WebMCP in your browser? Click **Run scripted walkthrough**. It calls the same
 
 ## Demo mode and live mode
 
-The hosted page runs in **demo mode**. Its data comes from [fixtures/airlock-diagnostics-2026-09-03.json](fixtures/airlock-diagnostics-2026-09-03.json), an export of the real `GET /diagnostics` report from an Airlock router on 2026-09-03. Events tagged `airlock` were copied verbatim; events tagged `scenario` were added, in the router's exact event shapes, to put the session into the blocked state the demo starts from. The runtime that "resumes" is simulated. The page says which is which on every event.
+The hosted page runs in **demo mode**. Its data comes from [fixtures/airlock-diagnostics-2026-09-03.json](fixtures/airlock-diagnostics-2026-09-03.json), an export of the real `GET /diagnostics` report from an Airlock router on 2026-09-03. Events tagged `airlock` were copied verbatim; events tagged `scenario` were added, in the router's exact event shapes, to put the session into the blocked state the demo starts from. The runtime that "resumes" is simulated, and the session card's task, id, checkpoint, and worktree are invented for the demo; only the router data underneath is real. The page labels the origin of every event.
 
 **Live mode** runs against a real Airlock session on your machine:
 
@@ -55,7 +55,7 @@ python bridge/relay.py --task "what the session is doing"    # inside an Airlock
 # open http://127.0.0.1:4783/
 ```
 
-The bridge is 200 lines of standard-library Python. It serves the same build and a same-origin `relay/api/state` endpoint fed by the router's existing loopback `GET /diagnostics` and `GET /v1/models`. The Airlock router is not modified and stays bound to 127.0.0.1. When a handoff is approved and executed in live mode, the bridge runs Airlock's own `airlock handoff set <from> <to>` so the approved order persists in Airlock's failover chain; the page reports exactly what the command returned. A full orchestrator switch of a running Claude Code process crosses a process boundary that only the launcher can drive, so that part stays with Airlock's launcher and is documented as such.
+The bridge is a small standard-library Python program. It serves the same build and a same-origin `relay/api/state` endpoint fed by the router's existing loopback `GET /diagnostics` and `GET /v1/models`. The Airlock router is not modified and stays bound to 127.0.0.1. In live mode the human's Approve click is also recorded by the bridge, which returns a one-shot nonce bound to the proposal, revision, and target. When the agent executes, the page sends that nonce and the bridge runs Airlock's own `airlock handoff set <from> <to>` only if it matches an approval it recorded itself; otherwise it refuses with a reason. The page reports exactly what the bridge did. This keeps the human's decision enforced outside the browser tab, not only inside it. A full orchestrator switch of a running Claude Code process crosses a process boundary that only the launcher can drive, so that part stays with Airlock's launcher and is documented as such.
 
 ![Live mode against a real router](docs/screenshot-live-mode.png)
 
@@ -64,7 +64,7 @@ The bridge is 200 lines of standard-library Python. It serves the same build and
 - Tools are registered once on load with `document.modelContext.registerTool`, each with a JSON Schema, a use-case description, and annotations. Reads carry `readOnlyHint: true`; the event log carries `untrustedContentHint: true`.
 - Tool results are bounded (40 events, 60 replay entries) and every error is structured (`code`, `message`, `hint`) so the agent can self-correct instead of guessing.
 - The same handlers serve WebMCP, the scripted walkthrough, and the tests, so the agent path is never a special case.
-- Human actions and agent actions mutate one store and are both attributed in the replay. The approval token is the concrete mechanism that makes "the human decides" enforceable rather than a convention.
+- Human actions and agent actions mutate one store and are both attributed in the replay. The approval token is the concrete mechanism that makes "the human decides" enforceable inside the page, and in live mode the bridge keeps its own approval record so a page script cannot reach the real command on its own.
 
 ## Development
 

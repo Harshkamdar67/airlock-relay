@@ -153,7 +153,7 @@ export const prepareHandoff: ToolSpec<PrepareHandoffToolInput, { handoff: unknow
     type: "object",
     properties: {
       target: { type: "string", description: "Route id from get_routes, for example gpt-5.6-sol." },
-      reason: { type: "string", description: "One or two sentences the human will read: why this route, what is preserved." },
+      reason: { type: "string", minLength: 8, maxLength: 400, description: "One or two sentences the human will read: why this route, what is preserved." },
       allow_metered: { type: "boolean", description: "Set true only if the human said metered extra usage is acceptable. Defaults to false." },
       preserve_checkpoint: { type: "boolean", description: "Resume from the last checkpoint. Defaults to true." },
       preserve_worktree: { type: "boolean", description: "Keep the current git worktree. Defaults to true." },
@@ -223,12 +223,12 @@ export interface ExecuteHandoffToolInput {
 export const executeHandoff: ToolSpec<ExecuteHandoffToolInput, { result: unknown; handoff: unknown; already_executed: boolean }> = {
   name: "execute_handoff",
   description:
-    "Carry out an approved handoff so the session resumes on the new route from its checkpoint. Requires the approval_token from get_handoff; fails with APPROVAL_REQUIRED before the human approves and with STALE_APPROVAL if the proposal changed after approval. Safe to retry: a second call returns the same result.",
+    "Carry out an approved handoff so the session resumes on the new route from its checkpoint. Call it after get_handoff reports status approved and pass the approval_token it returned. Without a valid token it fails with APPROVAL_REQUIRED (not yet approved) or STALE_APPROVAL (the human edited the proposal after approving). Safe to retry: a second call returns the same result.",
   inputSchema: {
     type: "object",
     properties: {
       handoff_id: { type: "string", description: "The proposal id, for example H-229." },
-      approval_token: { type: "string", description: "Token returned by get_handoff once the human approved." },
+      approval_token: { type: "string", description: "Token returned by get_handoff once the human approved. Required for execution; omitting it only reports whether approval exists." },
     },
     required: ["handoff_id"],
     additionalProperties: false,

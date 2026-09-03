@@ -199,7 +199,7 @@ export class RelayStore {
     }
     const previous = this.state.handoff;
     if (previous && (previous.status === "pending_approval" || previous.status === "approved")) {
-      previous.status = "superseded";
+      this.state = { ...this.state, handoff: { ...previous, status: "superseded", approvalToken: undefined } };
       this.pushReplay("relay", "handoff superseded", `${previous.id} replaced by a new proposal`);
     }
     const number = this.state.nextHandoffNumber;

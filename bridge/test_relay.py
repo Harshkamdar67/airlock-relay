@@ -42,6 +42,27 @@ class BuildStateTests(unittest.TestCase):
         self.assertEqual(len(state["diagnostics"]["events"]), 200)
 
 
+class ApprovalsTests(unittest.TestCase):
+    def test_handoff_without_recorded_approval_is_refused(self) -> None:
+        approvals = relay.Approvals()
+        self.assertEqual(approvals.consume("H-1", 1, "a", "b", "x"), "no_recorded_approval")
+
+    def test_nonce_revision_and_target_must_match_and_nonce_is_one_shot(self) -> None:
+        approvals = relay.Approvals()
+        nonce = approvals.record("H-1", 2, "claude-opus-5[1m]", "claude-fable-5-1[1m]")
+        self.assertEqual(approvals.consume("H-1", 2, "claude-opus-5[1m]", "claude-fable-5-1[1m]", "wrong"), "nonce_mismatch")
+        self.assertEqual(approvals.consume("H-1", 3, "claude-opus-5[1m]", "claude-fable-5-1[1m]", nonce), "approval_is_for_a_different_revision_or_target")
+        self.assertEqual(approvals.consume("H-1", 2, "claude-opus-5[1m]", "gpt-5.6-sol", nonce), "approval_is_for_a_different_revision_or_target")
+        self.assertIsNone(approvals.consume("H-1", 2, "claude-opus-5[1m]", "claude-fable-5-1[1m]", nonce))
+        self.assertEqual(approvals.consume("H-1", 2, "claude-opus-5[1m]", "claude-fable-5-1[1m]", nonce), "no_recorded_approval")
+
+    def test_new_approval_replaces_the_old_record(self) -> None:
+        approvals = relay.Approvals()
+        first = approvals.record("H-1", 1, "a", "b")
+        approvals.record("H-1", 2, "a", "c")
+        self.assertEqual(approvals.consume("H-1", 1, "a", "b", first), "nonce_mismatch")
+
+
 class ApplyHandoffTests(unittest.TestCase):
     def test_unknown_routes_are_refused(self) -> None:
         result = relay.apply_handoff("claude-opus-5[1m]", "not-a-model")

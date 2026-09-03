@@ -136,6 +136,34 @@ class RouterClient:
             return diagnostics, models
 
 
+class Approvals:
+    """Approvals the human made in the page, recorded here so the bridge can
+    refuse a handoff that no recorded approval covers. Nonces are one-shot."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._records: dict[str, dict[str, Any]] = {}
+
+    def record(self, handoff_id: str, revision: int, from_model: str, target: str) -> str:
+        nonce = os.urandom(12).hex()
+        with self._lock:
+            self._records[handoff_id] = {"nonce": nonce, "revision": revision, "from": from_model, "target": target}
+        return nonce
+
+    def consume(self, handoff_id: str, revision: int, from_model: str, target: str, nonce: str) -> str | None:
+        """Return None when the approval matches, else the reason it does not."""
+        with self._lock:
+            record = self._records.get(handoff_id)
+            if not record:
+                return "no_recorded_approval"
+            if not nonce or record["nonce"] != nonce:
+                return "nonce_mismatch"
+            if record["revision"] != revision or record["target"] != target or record["from"] != from_model:
+                return "approval_is_for_a_different_revision_or_target"
+            del self._records[handoff_id]
+            return None
+
+
 def apply_handoff(from_model: str, to_model: str) -> dict[str, Any]:
     """Best effort: persist the approved order with Airlock's own command."""
     src = ROUTE_NAMES.get(from_model) or ROUTE_NAMES.get(short_model(from_model))
@@ -153,7 +181,8 @@ def apply_handoff(from_model: str, to_model: str) -> dict[str, Any]:
     return {"applied": completed.returncode == 0, "exit_code": completed.returncode, "command": " ".join(command), "output": output[-6:]}
 
 
-def make_handler(client: RouterClient, dist: Path, task: str, workdir: str):
+def make_handler(client: RouterClient, dist: Path, task: str, workdir: str, approvals: Approvals | None = None):
+    approvals = approvals or Approvals()
     class Handler(SimpleHTTPRequestHandler):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, directory=str(dist), **kwargs)
@@ -182,16 +211,32 @@ def make_handler(client: RouterClient, dist: Path, task: str, workdir: str):
             super().do_GET()
 
         def do_POST(self) -> None:  # noqa: N802
-            if self.path.split("?", 1)[0] != "/relay/api/handoff":
+            path = self.path.split("?", 1)[0]
+            if path not in ("/relay/api/approve", "/relay/api/handoff"):
                 self._json(404, {"error": "not_found"})
                 return
             length = int(self.headers.get("Content-Length") or 0)
             try:
-                payload = json.loads(self.rfile.read(length) or b"{}")
+                payload = json.loads(self.rfile.read(min(length, 65536)) or b"{}")
             except ValueError:
                 self._json(400, {"error": "bad_json"})
                 return
-            self._json(200, apply_handoff(str(payload.get("from", "")), str(payload.get("target", ""))))
+            handoff_id = str(payload.get("handoff_id", ""))
+            revision = int(payload.get("revision") or 0)
+            from_model = str(payload.get("from", ""))
+            target = str(payload.get("target", ""))
+            if path == "/relay/api/approve":
+                if not handoff_id or not target:
+                    self._json(400, {"error": "handoff_id_and_target_required"})
+                    return
+                nonce = approvals.record(handoff_id, revision, from_model, target)
+                self._json(200, {"recorded": True, "handoff_id": handoff_id, "revision": revision, "nonce": nonce})
+                return
+            problem = approvals.consume(handoff_id, revision, from_model, target, str(payload.get("nonce", "")))
+            if problem:
+                self._json(403, {"applied": False, "reason": problem, "command": None})
+                return
+            self._json(200, apply_handoff(from_model, target))
 
     return Handler
 
