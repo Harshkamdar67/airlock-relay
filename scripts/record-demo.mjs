@@ -37,25 +37,25 @@ const OVERLAY_CSS = `
 #rc-cursor { position: fixed; z-index: 99999; width: 22px; height: 22px; pointer-events: none; transform: translate(-3px,-2px); transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1); left: 720px; top: 460px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
 #rc-cursor.click { animation: rc-click .35s ease; }
 @keyframes rc-click { 0% { transform: translate(-3px,-2px) scale(1);} 40% { transform: translate(-3px,-2px) scale(.8);} 100% { transform: translate(-3px,-2px) scale(1);} }
-#rc-agent { position: fixed; right: 20px; bottom: 20px; width: 400px; max-height: 46vh; z-index: 99990; background: #fffffff2; border: 1px solid #cfc9bd; border-radius: 14px; box-shadow: 0 18px 44px -12px rgba(21,23,28,.35); font: 13px/1.45 Inter, system-ui, sans-serif; color: #15171c; display: flex; flex-direction: column; overflow: hidden; opacity: 0; transform: translateY(12px); transition: opacity .4s, transform .4s; }
+#rc-agent { position: fixed; right: 20px; bottom: 20px; width: 400px; max-height: 46vh; z-index: 99990; background: #18181df2; border: 1px solid #32323b; border-radius: 10px; box-shadow: 0 18px 44px -12px rgba(0,0,0,.7); font: 13px/1.45 Inter, system-ui, sans-serif; color: #ececf1; display: flex; flex-direction: column; overflow: hidden; opacity: 0; transform: translateY(12px); transition: opacity .4s, transform .4s; }
 #rc-agent.show { opacity: 1; transform: none; }
-#rc-agent header { padding: 9px 12px; border-bottom: 1px solid #e4e0d7; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6b7280; display: flex; gap: 8px; align-items: center; }
-#rc-agent header i { width: 8px; height: 8px; border-radius: 50%; background: #0f766e; display: inline-block; }
-#rc-agent header small { margin-left: auto; text-transform: none; letter-spacing: 0; color: #9aa2af; font-size: 10.5px; }
+#rc-agent header { padding: 9px 12px; border-bottom: 1px solid #24242b; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #7f7f8c; display: flex; gap: 8px; align-items: center; }
+#rc-agent header i { width: 8px; height: 8px; border-radius: 50%; background: #2dd4bf; display: inline-block; }
+#rc-agent header small { margin-left: auto; text-transform: none; letter-spacing: 0; color: #55555f; font-size: 10.5px; }
 #rc-agent .msgs { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; overflow: auto; }
 #rc-agent .m { padding: 8px 11px; border-radius: 10px; max-width: 92%; white-space: pre-wrap; }
-#rc-agent .m.user { align-self: flex-end; background: #efe9fb; color: #15171c; }
-#rc-agent .m.agent { align-self: flex-start; background: #e6f4f1; border: 1px solid #bfe1da; }
-#rc-agent .m.agent b { color: #0f766e; }
-#rc-agent .m.tool { align-self: flex-start; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: #6b7280; padding: 2px 6px; }
-#rc-ring { position: fixed; z-index: 99980; border: 2px solid #6d28d9; border-radius: 16px; pointer-events: none; opacity: 0; transition: all .4s; box-shadow: 0 0 0 6px rgba(109,40,217,.14); }
+#rc-agent .m.user { align-self: flex-end; background: rgba(167,139,250,.16); color: #ececf1; }
+#rc-agent .m.agent { align-self: flex-start; background: rgba(45,212,191,.10); border: 1px solid rgba(45,212,191,.35); }
+#rc-agent .m.agent b { color: #2dd4bf; }
+#rc-agent .m.tool { align-self: flex-start; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: #7f7f8c; padding: 2px 6px; }
+#rc-ring { position: fixed; z-index: 99980; border: 2px solid #a78bfa; border-radius: 12px; pointer-events: none; opacity: 0; transition: all .4s; box-shadow: 0 0 0 6px rgba(167,139,250,.16); }
 #rc-ring.show { opacity: 1; }
-#rc-end { position: fixed; inset: 0; z-index: 99995; background: #f6f4ef; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; opacity: 0; transition: opacity .6s; font-family: Inter, system-ui, sans-serif; }
+#rc-end { position: fixed; inset: 0; z-index: 99995; background: #0b0b0e; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; opacity: 0; transition: opacity .6s; font-family: Inter, system-ui, sans-serif; }
 #rc-end.show { opacity: 1; }
-#rc-end h1 { margin: 0; font-family: Fraunces, Georgia, serif; font-size: 52px; font-weight: 500; letter-spacing: -0.02em; color: #15171c; display: flex; align-items: center; gap: 18px; }
-#rc-end h1 i { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #0f766e 0 34%, transparent 36%), conic-gradient(from 200deg, #6d28d9, #0f766e, #1d4ed8, #6d28d9); }
-#rc-end p { margin: 0; color: #3a3f4a; font-size: 18px; }
-#rc-end code { color: #0f766e; font-size: 20px; font-family: "JetBrains Mono", Consolas, monospace; }
+#rc-end h1 { margin: 0; font-size: 44px; font-weight: 600; letter-spacing: -0.02em; color: #ececf1; display: flex; align-items: center; gap: 18px; }
+#rc-end h1 i { width: 28px; height: 28px; border-radius: 7px; background: conic-gradient(from 210deg, #7c86ff, #2dd4bf, #7c86ff); }
+#rc-end p { margin: 0; color: #b4b4c0; font-size: 18px; }
+#rc-end code { color: #2dd4bf; font-size: 20px; font-family: "JetBrains Mono", Consolas, monospace; }
 `;
 
 async function installOverlay() {
@@ -63,7 +63,7 @@ async function installOverlay() {
     if (document.getElementById("rc-style")) return;
     const style = document.createElement("style"); style.id = "rc-style"; style.textContent = css; document.head.appendChild(style);
     const cursor = document.createElement("div"); cursor.id = "rc-cursor";
-    cursor.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 2l16 9.5-7.2 1.6 4.2 7.4-2.9 1.6-4.2-7.4L4 19z" fill="#fff" stroke="#111" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
+    cursor.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 2l16 9.5-7.2 1.6 4.2 7.4-2.9 1.6-4.2-7.4L4 19z" fill="#fff" stroke="#000" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
     document.body.appendChild(cursor);
     const ring = document.createElement("div"); ring.id = "rc-ring"; document.body.appendChild(ring);
     const agent = document.createElement("div"); agent.id = "rc-agent";

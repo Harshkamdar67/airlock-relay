@@ -89,7 +89,7 @@ Windows note: Airlock's launcher is a Bash script, so the bridge runs Airlock co
 | Approval gate on the bridge | Forged `POST /relay/api/handoff` and `POST /relay/api/resume` refused; genuine approve then execute accepted |
 | Claude Code hooks with the real `claude` CLI | `scripts/hook-e2e.sh --with-real-call`: SessionStart, Stop, and SessionEnd reached the bridge with a real session id |
 | Block detection for Claude Code | Verified with the documented `StopFailure` hook payload through `bridge/claude_code_hook.py`; a live provider failure was not reproducible on demand in print mode |
-| Resume command and terminal launch | Command built from the discovered session id; terminal launch exercised in dry-run so no second session was started |
+| Resume, for real | `scripts/resume-e2e.sh`: against a scratch Claude Code session, the page's Resume button opened a terminal running `airlock hybrid sonnet --resume <id>`, and a `claude.exe` process launched by Airlock's launcher with that id was observed, then stopped |
 
 ## Works with
 
@@ -146,6 +146,10 @@ Nothing here restarts a process behind your back. The agent inspects and propose
 - The store is not reachable from the console unless the page is opened with `?debug=1`.
 - The live bridge binds to 127.0.0.1, talks only to the router's loopback endpoints, records approvals itself, and refuses to run the real Airlock command without its own one-shot nonce. The Airlock router is not modified.
 - Nothing is stored server-side. The hosted page is static.
+
+## Design
+
+The console is dark-first with layered elevation instead of shadows, one accent, four actor tints, 36px rows, and tabular numerals. The critical status sits top-left with the four numbers that decide the next action beside it; everything else is progressive disclosure. That follows what the strongest operations consoles do today, see [925studios on SaaS dashboard patterns](https://www.925studios.co/blog/saas-dashboard-design-examples-2026), [AYDesign on dark-mode dashboards](https://www.aydesign.ai/blog/dark-mode-dashboard-design-patterns-2026), and the [UXPin dashboard principles guide](https://www.uxpin.com/studio/blog/dashboard-design-principles/).
 
 ## Development
 

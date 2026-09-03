@@ -27,7 +27,7 @@ const ACTOR_LABEL: Record<ReplayEntry["actor"], string> = { runtime: "Runtime", 
 // UI-only state that survives re-renders.
 const collapsed = new Set<string>(["events"]);
 
-// ---- Icons (16px, 1.5px stroke) -----------------------------------------------
+// ---- Icons (16px, 1.7px stroke) -----------------------------------------------
 
 const ICON: Record<string, string> = {
   alert: '<path d="M12 9v4m0 4h.01M10.3 3.9 2.6 17.2A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
@@ -38,9 +38,7 @@ const ICON: Record<string, string> = {
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4"/>',
   relay: '<path d="M4 12h4l2-6 4 12 2-6h4"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   git: '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M6 8.5v7M18 10.5c0 3-3 4-6 4s-6 1-6 3.5"/>',
-  shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
   chevron: '<path d="m6 9 6 6 6-6"/>',
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
   terminal: '<path d="m5 7 5 5-5 5m8 0h6"/>',
@@ -137,7 +135,7 @@ function renderBar(ctx: UiContext, state: RelayState): string {
     </header>`;
 }
 
-// ---- Status strip ---------------------------------------------------------------
+// ---- Status strip and KPIs ------------------------------------------------------
 
 function statusCopy(state: RelayState): { title: string; sub: string } {
   const s = state.session;
@@ -165,6 +163,8 @@ function renderStatus(ctx: UiContext, state: RelayState): string {
   const active = activeRoute(state);
   const { title, sub } = statusCopy(state);
   const pct = active ? Math.min(100, Math.round((s.contextTokens / active.contextWindow) * 100)) : 0;
+  const ready = state.routes.filter((r) => r.status === "ready").length;
+  const reset = state.routes.find((r) => r.status === "cooldown" && r.cooldownUntil)?.cooldownUntil;
   const w = ctx.webmcp;
   let callout = "";
   if (w && !w.available) {
@@ -188,14 +188,18 @@ function renderStatus(ctx: UiContext, state: RelayState): string {
           <p>${esc(sub)}</p>
         </div>
       </div>
-      <dl class="stats">
-        <div><dt>Task</dt><dd class="task" title="${esc(s.task)}">${esc(s.task)}</dd></div>
-        <div><dt>Active model</dt><dd>${esc(active?.label ?? short(s.activeModel))}<span class="mono dim"> ${esc(short(s.activeModel))}</span></dd></div>
-        <div><dt>Context</dt><dd><span class="num">${fmtTokens(s.contextTokens)}</span><span class="dim"> / ${fmtTokens(active?.contextWindow ?? 0)}</span><span class="meter" aria-hidden="true"><i style="width:${pct}%"></i></span></dd></div>
-        <div><dt>Checkpoint</dt><dd class="mono">${esc(s.checkpoint)}</dd></div>
-        <div><dt>Worktree</dt><dd class="mono" title="${esc(s.workdir)}">${esc(s.workdir)}</dd></div>
+      <dl class="kpis">
+        <div><dt>Active model</dt><dd title="${esc(s.activeModel)}">${esc(active?.label ?? short(s.activeModel))}</dd></div>
+        <div><dt>Context</dt><dd>${fmtTokens(s.contextTokens)}<span class="dim"> / ${fmtTokens(active?.contextWindow ?? 0)}</span><span class="meter" aria-hidden="true"><i style="width:${pct}%"></i></span></dd></div>
+        <div><dt>Routes ready</dt><dd class="${ready === 0 ? "danger" : ""}">${ready}<span class="dim"> / ${state.routes.length}</span></dd></div>
+        <div><dt>${reset ? "Cooldown ends" : "Checkpoint"}</dt><dd class="mono">${reset ? esc(countdown(reset)) : esc(s.checkpoint)}</dd></div>
       </dl>
     </section>
+    <div class="taskline">
+      <span class="task"><b>Task</b>${esc(s.task)}</span>
+      <span><b>Checkpoint</b><span class="mono">${esc(s.checkpoint)}</span></span>
+      <span><b>Worktree</b><span class="mono" title="${esc(s.workdir)}">${esc(s.workdir)}</span></span>
+    </div>
     ${callout}`;
 }
 
@@ -208,10 +212,10 @@ function renderProposal(state: RelayState): string {
       <section class="panel handoff" aria-labelledby="handoff-h">
         <header><h2 id="handoff-h">${icon("git")}Handoff proposal</h2><span class="dim">Nothing proposed yet</span></header>
         <ol class="steps">
-          <li><span class="n">1</span><div><b>The agent reads.</b><span>get_session, get_events and get_routes tell it what broke and what is still available.</span></div></li>
-          <li><span class="n">2</span><div><b>The agent proposes.</b><span>prepare_handoff writes a proposal here. Cooldown routes, routes without room, and metered routes it was not allowed are refused.</span></div></li>
-          <li><span class="n">3</span><div><b>You decide.</b><span>Change the target, add a note, then approve or reject. Approval is bound to the revision you saw.</span></div></li>
-          <li><span class="n">4</span><div><b>The agent executes.</b><span>execute_handoff resumes the work from its checkpoint, or is refused if you edited after approving.</span></div></li>
+          <li><span class="n">1</span><div><b>The agent reads</b>get_session, get_events and get_routes tell it what broke and what is still available.</div></li>
+          <li><span class="n">2</span><div><b>The agent proposes</b>prepare_handoff writes a proposal here. Cooldown routes, routes without room, and metered routes it was not allowed are refused.</div></li>
+          <li><span class="n">3</span><div><b>You decide</b>Change the target, add a note, then approve or reject. Approval is bound to the revision you saw.</div></li>
+          <li><span class="n">4</span><div><b>The agent executes</b>execute_handoff resumes the work from its checkpoint, or is refused if you edited after approving.</div></li>
         </ol>
       </section>`;
   }
@@ -248,7 +252,7 @@ function renderProposal(state: RelayState): string {
     if (state.mode === "live") {
       outcome += `
         <div class="resume">
-          <div class="resume-head"><button class="btn primary" data-action="resume">${icon("terminal")}Resume in a new terminal</button><span class="dim">Exit the blocked session first. This relaunches the same conversation on the approved model.</span></div>
+          <div class="resume-head"><button class="btn primary" data-action="resume">${icon("terminal")}Resume in a new terminal</button><span>Exit the blocked session first. This relaunches the same conversation on the approved model.</span></div>
           ${state.bridge?.resumeCommand ? `<code class="cmd">${esc(state.bridge.resumeCommand)}</code>` : ""}
           ${state.bridge?.resumeStatus ? `<p class="dim">${esc(state.bridge.resumeStatus)}</p>` : ""}
         </div>`;
@@ -310,10 +314,10 @@ function renderTimeline(state: RelayState): string {
 
 // ---- Side sections ------------------------------------------------------------------
 
-function section(key: string, title: string, iconName: string, meta: string, body: string, extraClass = ""): string {
+function section(key: string, title: string, iconName: string, meta: string, body: string): string {
   const open = !collapsed.has(key);
   return `
-    <section class="panel side-section ${open ? "open" : "closed"} ${extraClass}" aria-labelledby="${key}-h">
+    <section class="panel side-section ${open ? "open" : "closed"}" aria-labelledby="${key}-h">
       <header>
         <button class="disclosure" data-toggle="${key}" aria-expanded="${open}" aria-controls="${key}-body">${icon("chevron", "caret")}</button>
         <h2 id="${key}-h">${icon(iconName)}${title}</h2>
