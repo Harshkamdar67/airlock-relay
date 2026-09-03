@@ -45,7 +45,7 @@ function targetExpr(target) {
   }
   return `'${String(target).replace(/'/g, "''")}'`;
 }
-async function typeInto(target, text, perChar = 45) {
+async function typeInto(target, text, perChar = 55) {
   // Types character by character through WScript.Shell so it looks human.
   const chunks = [];
   for (const ch of text) chunks.push(sendKeysEscape(ch));
@@ -54,12 +54,31 @@ async function typeInto(target, text, perChar = 45) {
   const r = ps(script);
   if (r.status !== 0) log("sendkeys error", r.stderr.trim().slice(0, 200));
 }
+// Long prompts go through the clipboard: SendKeys occasionally sticks Shift.
+async function pasteInto(target, text) {
+  const r = ps(`$w = New-Object -ComObject WScript.Shell; Set-Clipboard -Value '${text.replace(/'/g, "''")}'; if (-not $w.AppActivate(${targetExpr(target)})) { throw 'no window' }; Start-Sleep -Milliseconds 400; $w.SendKeys('^v'); Start-Sleep -Milliseconds 600`);
+  if (r.status !== 0) log("paste error", r.stderr.trim().slice(0, 200));
+}
 async function pressEnter(target) {
   ps(`$w = New-Object -ComObject WScript.Shell; $w.AppActivate(${targetExpr(target)}) | Out-Null; Start-Sleep -Milliseconds 150; $w.SendKeys('{ENTER}')`);
 }
 function activate(target) {
   const r = ps(`$w = New-Object -ComObject WScript.Shell; if (-not $w.AppActivate(${targetExpr(target)})) { Write-Output 'MISS' }`);
   if (r.stdout.includes("MISS")) log("activate missed", target);
+}
+// Win32 window control by process: 6 = minimize, 9 = restore, plus foreground.
+const USER32 = `Add-Type -Namespace W -Name U -MemberDefinition '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);'`;
+function windowOf(proc, nth = 0) {
+  return `(Get-Process ${proc} -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Sort-Object StartTime -Descending | Select-Object -Index ${nth}).MainWindowHandle`;
+}
+function showWindow(proc, cmd, nth = 0) {
+  const r = ps(`${USER32}; $h = ${windowOf(proc, nth)}; if ($h) { [W.U]::ShowWindow($h, ${cmd}) | Out-Null; if (${cmd} -ne 6) { [W.U]::SetForegroundWindow($h) | Out-Null }; Write-Output 'OK' } else { Write-Output 'NOWIN' }`);
+  if (!r.stdout.includes("OK")) log("showWindow", proc, cmd, r.stdout.trim(), r.stderr.trim().slice(0, 120));
+}
+let chromePidForWindow = 0;
+function foregroundChrome() {
+  const r = ps(`${USER32}; $p = $null; if (${chromePidForWindow} -gt 0) { $p = Get-Process -Id ${chromePidForWindow} -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } }; if (-not $p) { $p = Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like 'Airlock Relay*' } | Select-Object -First 1 }; if ($p) { [W.U]::ShowWindow($p.MainWindowHandle, 9) | Out-Null; [W.U]::SetForegroundWindow($p.MainWindowHandle) | Out-Null; Write-Output ('OK ' + $p.MainWindowTitle) } else { Write-Output 'NOWIN'; Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { Write-Output ('  chrome ' + $_.Id + ' ' + $_.MainWindowTitle) } }`);
+  log("chrome foreground:", r.stdout.trim().split(/\r?\n/).slice(0, 4).join(" | "));
 }
 
 // ---- scene 1: terminal, real Airlock session on Grok ---------------------------------
@@ -90,7 +109,8 @@ await sleep(9000);
 // starts on "No, exit"; Down then Enter selects "Yes, I trust this folder".
 ps(`$w = New-Object -ComObject WScript.Shell; $w.AppActivate(${targetExpr(TERM)}) | Out-Null; Start-Sleep -Milliseconds 200; $w.SendKeys('{DOWN}'); Start-Sleep -Milliseconds 400; $w.SendKeys('{ENTER}')`);
 await sleep(10000);
-await typeInto(TERM, "Read src/auth.js and propose how to move session tokens from bearer headers to signed httpOnly cookies. Keep it to a short plan.");
+await pasteInto(TERM, "Read src/auth.js and propose how to move session tokens from bearer headers to signed httpOnly cookies. Keep it to a short plan.");
+await sleep(800);
 await pressEnter(TERM);
 log("waiting for Grok to fail, the router to detour, and the answer to finish");
 // The session is idle once its transcript stops growing.
@@ -119,7 +139,9 @@ const newestTranscript = () => {
 await sleep(3000);
 
 // ---- scene 2: start the bridge from inside the session --------------------------------
-await typeInto(TERM, `! (nohup python "${relayPy}" --port ${bridgePort} --task "Move session tokens to signed cookies" --workdir "$(pwd)" --no-desktop-notify > /tmp/relay-live.log 2>&1 &) && sleep 2 && tail -2 /tmp/relay-live.log`);
+// A detached process so the bridge outlives the session it was started from.
+const relayWin = path.join(here, "bridge", "relay.py");
+await typeInto(TERM, `! powershell -NoProfile -Command "Start-Process -WindowStyle Hidden python -ArgumentList @('\\"${relayWin}\\"','--port','${bridgePort}','--task','\\"Move session tokens to signed cookies\\"','--workdir','\\"${project}\\"','--no-desktop-notify')" && sleep 3 && curl -s http://127.0.0.1:${bridgePort}/relay/api/state | head -c 160`, 40);
 await pressEnter(TERM);
 for (let i = 0; i < 20; i += 1) {
   await sleep(1500);
@@ -130,24 +152,19 @@ for (let i = 0; i < 20; i += 1) {
 }
 await sleep(3000);
 
-// ---- scene 3: Chrome on the live console -------------------------------------------
+// ---- scene 3: the console, recorded by Chrome's own screencast ---------------------------
+rec.stdin.write("q");
+await sleep(2500);
+log("part 1 done");
+const part2 = path.join(here, "video", "live-part2.webm");
 const browser = await puppeteer.launch({
   executablePath: chromePath,
-  headless: false,
-  defaultViewport: null,
-  args: ["--enable-features=WebMCPTesting,WebMCP", "--window-position=0,0", "--window-size=1440,900", "--no-first-run", "--no-default-browser-check", "--disable-infobars", `--user-data-dir=${path.join(here, "video", "chrome-profile")}`],
+  headless: "new",
+  args: ["--enable-features=WebMCPTesting,WebMCP", "--no-first-run", "--no-default-browser-check", "--hide-scrollbars", "--force-device-scale-factor=1"],
+  defaultViewport: { width: 1440, height: 900 },
 });
-const page = (await browser.pages())[0] ?? (await browser.newPage());
+const page = await browser.newPage();
 await page.goto(`http://127.0.0.1:${bridgePort}/app/`, { waitUntil: "networkidle0" });
-await page.bringToFront();
-await sleep(800);
-const CHROME = { proc: "chrome", nth: 0 };
-for (let i = 0; i < 5; i += 1) {
-  const r = ps(`$w = New-Object -ComObject WScript.Shell; $t = (Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like 'Airlock Relay*' } | Select-Object -First 1).MainWindowTitle; if ($t -and $w.AppActivate($t)) { Write-Output 'OK' } else { Write-Output 'MISS' }`);
-  if (r.stdout.includes("OK")) break;
-  await sleep(800);
-}
-void CHROME;
 await page.evaluate(() => {
   const style = document.createElement("style");
   style.textContent = `#rc-cursor{position:fixed;z-index:99999;width:22px;height:22px;pointer-events:none;transition:left .5s cubic-bezier(.2,.8,.2,1),top .5s cubic-bezier(.2,.8,.2,1);left:900px;top:600px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6))}`;
@@ -156,10 +173,11 @@ await page.evaluate(() => {
   c.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 2l16 9.5-7.2 1.6 4.2 7.4-2.9 1.6-4.2-7.4L4 19z" fill="#fff" stroke="#000" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
   document.body.appendChild(c);
 });
+const recorder2 = await page.screencast({ path: part2, ffmpegPath: ffmpeg });
 const moveTo = async (sel) => { await page.evaluate((s) => { const el = document.querySelector(s); if (!el) return; const r = el.getBoundingClientRect(); const c = document.getElementById("rc-cursor"); c.style.left = `${r.left + r.width / 2}px`; c.style.top = `${r.top + r.height / 2}px`; }, sel); await sleep(700); };
 const clickSel = async (sel) => { await moveTo(sel); await page.evaluate((s) => document.querySelector(s)?.click(), sel); await sleep(500); };
 const run = (n, i = {}) => page.evaluate(async ([n, i]) => { const mc = document.modelContext; const t = (await mc.getTools()).find((x) => x.name === n); return JSON.parse(await mc.executeTool(t, JSON.stringify(i))); }, [n, i]);
-await sleep(4000);
+await sleep(3500);
 await moveTo(".status");
 await sleep(2500);
 await moveTo(".routes li.cooldown");
@@ -190,31 +208,48 @@ await moveTo(".status");
 await sleep(2500);
 await run("get_replay");
 await sleep(2500);
+await moveTo('button[data-action="resume"]');
+await sleep(2000);
+await recorder2.stop();
+log("part 2 done");
 
-// ---- scene 4: exit the blocked session, resume on Opus -----------------------------------
-activate(TERM);
+// ---- scene 4: exit the blocked session, resume on Opus (screen capture again) ---------------
+const part3 = path.join(here, "video", "live-part3.mp4");
+const rec3 = spawn(ffmpeg, ["-y", "-f", "gdigrab", "-framerate", "30", "-offset_x", "0", "-offset_y", "0", "-video_size", "1440x900", "-i", "desktop", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", part3], { stdio: ["pipe", "ignore", "ignore"] });
 await sleep(1500);
+activate(TERM);
+await sleep(1200);
 await typeInto(TERM, "/exit");
 await pressEnter(TERM);
 await sleep(5000);
-ps(`$w = New-Object -ComObject WScript.Shell; $t = (Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like 'Airlock Relay*' } | Select-Object -First 1).MainWindowTitle; if ($t) { $w.AppActivate($t) | Out-Null }`);
-await page.bringToFront();
-await sleep(1200);
 await clickSel('button[data-action="resume"]');
 log("resume clicked");
-for (let i = 0; i < 20; i += 1) {
+let minttyCount = 0;
+for (let i = 0; i < 25; i += 1) {
   await sleep(1000);
-  const r = ps(`(Get-Process mintty -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -ne '' } | Measure-Object).Count`);
-  if (Number(r.stdout.trim()) >= 2) break;
+  const r = ps(`(Get-Process mintty -ErrorAction SilentlyContinue | Measure-Object).Count`);
+  minttyCount = Number(r.stdout.trim());
+  if (minttyCount >= 2) break;
 }
-activate({ proc: "mintty", nth: 0 });
+log("mintty windows:", minttyCount);
+await sleep(1500);
+showWindow("mintty", 9, 0);
 await sleep(18000);
-await typeInto({ proc: "mintty", nth: 0 }, "Continue with step 1 of the plan and show the diff for src/auth.js.");
+await pasteInto({ proc: "mintty", nth: 0 }, "Continue with step 1 of the plan and show the diff for src/auth.js.");
+await sleep(800);
 await pressEnter({ proc: "mintty", nth: 0 });
-await sleep(50000);
-
-// ---- end ------------------------------------------------------------------------
-rec.stdin.write("q");
+await sleep(16000);
+rec3.stdin.write("q");
 await sleep(2500);
 await browser.close().catch(() => {});
-log("done");
+log("part 3 done");
+
+// ---- join ------------------------------------------------------------------------
+const part1 = out;
+const part2mp4 = path.join(here, "video", "live-part2.mp4");
+spawnSync(ffmpeg, ["-y", "-v", "error", "-i", part2, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-r", "30", "-vf", "scale=1440:900", part2mp4], { stdio: "inherit" });
+const list = path.join(here, "video", "live-list.txt");
+fs.writeFileSync(list, [part1, part2mp4, part3].map((f) => `file '${f.replace(/\\/g, "/")}'`).join("\n"));
+const joined = path.join(here, "video", "live-full.mp4");
+const j = spawnSync(ffmpeg, ["-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", list, "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-r", "30", "-movflags", "+faststart", joined], { stdio: "inherit" });
+log("joined", joined, j.status === 0 ? "ok" : "FAILED");
