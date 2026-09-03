@@ -170,5 +170,5 @@ export interface ToolError {
 }
 
 export type ToolResult<T> =
-  | ({ ok: true } & T)
-  | { ok: false; error: ToolError };
+  | ({ ok: true; message?: string } & T)
+  | { ok: false; message?: string; error: ToolError };

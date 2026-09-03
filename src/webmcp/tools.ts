@@ -15,6 +15,8 @@ export interface ToolSpec<I, O> {
   annotations: { readOnlyHint: boolean; untrustedContentHint?: boolean };
   run(store: RelayStore, input: I): ToolResult<O>;
   summarize(result: ToolResult<O>, input: I): string;
+  /** Optional richer one-sentence message for successful results. */
+  message?(result: ToolResult<O>, input: I, store: RelayStore): string;
 }
 
 function short(model: string): string {
@@ -71,6 +73,12 @@ export const getSession: ToolSpec<Record<string, never>, { session: unknown; han
     if (!r.ok) return r.error.code;
     const s = r.session as { status: string; active_model: string; blocked_reason: string | null };
     return `${s.status}${s.blocked_reason ? ` (${s.blocked_reason})` : ""} on ${short(s.active_model)}`;
+  },
+  message(r) {
+    if (!r.ok) return r.error.code;
+    const s = r.session as { status: string; active_model: string; blocked_reason: string | null; task: string; context_tokens: number; context_window: number | null };
+    if (s.status === "blocked") return `The session "${s.task}" is blocked on ${short(s.active_model)} because of a ${String(s.blocked_reason).replace("_", " ")}; the conversation is ${Math.round(s.context_tokens / 1000)}k tokens. ${r.next_step}`;
+    return `The session is running on ${short(s.active_model)}. ${r.next_step}`;
   },
 };
 
@@ -139,6 +147,15 @@ export const getRoutes: ToolSpec<Record<string, never>, { routes: unknown[]; act
     const ready = (r.routes as Array<{ status: string }>).filter((x) => x.status === "ready").length;
     return `${r.routes.length} routes, ${ready} ready`;
   },
+  message(r) {
+    if (!r.ok) return r.error.code;
+    const routes = r.routes as Array<{ id: string; status: string; metered: boolean; fits_session_context: boolean; is_active: boolean }>;
+    const good = routes.filter((x) => x.status === "ready" && !x.metered && x.fits_session_context && !x.is_active).map((x) => x.id);
+    const meteredOnly = routes.filter((x) => x.status === "ready" && x.metered && x.fits_session_context && !x.is_active).map((x) => x.id);
+    if (good.length) return `Ready, non-metered routes that fit this session: ${good.join(", ")}. Prefer one of these unless the human said otherwise.`;
+    if (meteredOnly.length) return `No non-metered route is ready and fits. Metered routes that would work: ${meteredOnly.join(", ")}; use allow_metered only if the human accepts the spend.`;
+    return "No route is ready and fits the session right now. Tell the human when the cooldowns reset.";
+  },
 };
 
 export interface PrepareHandoffToolInput {
@@ -184,6 +201,11 @@ export const prepareHandoff: ToolSpec<PrepareHandoffToolInput, { handoff: unknow
   summarize(r, input) {
     return r.ok ? `${(r.handoff as Handoff).id} → ${short(String(input.target))}` : r.error.code;
   },
+  message(r) {
+    if (!r.ok) return r.error.code;
+    const h = r.handoff as Handoff;
+    return `Proposal ${h.id} created: ${short(h.from)} → ${short(h.target)}. Nothing has switched. ${r.next_step}`;
+  },
 };
 
 export const getHandoff: ToolSpec<{ handoff_id?: string }, { handoff: unknown; human_changes_since_created: number; next_step: string }> = {
@@ -218,6 +240,13 @@ export const getHandoff: ToolSpec<{ handoff_id?: string }, { handoff: unknown; h
     const h = r.handoff as { id: string; status: string; revision: number };
     return `${h.id} ${h.status} r${h.revision}`;
   },
+  message(r) {
+    if (!r.ok) return r.error.code;
+    const h = r.handoff as Handoff & { approval_token?: string };
+    const changes = h.humanChanges.filter((c) => c.field === "target").map((c) => `target changed ${short(String(c.from))} → ${short(String(c.to))}${c.note ? ` (${c.note})` : ""}`);
+    const changed = changes.length ? ` The human ${changes.join("; ")}.` : "";
+    return `${h.id} is ${h.status.replace("_", " ")} at revision ${h.revision}, target ${short(h.target)}.${changed} ${r.next_step}`;
+  },
 };
 
 export interface ExecuteHandoffToolInput {
@@ -248,6 +277,11 @@ export const executeHandoff: ToolSpec<ExecuteHandoffToolInput, { result: unknown
     if (!r.ok) return r.error.code;
     const res = r.result as { active: string };
     return `${r.already_executed ? "already " : ""}resumed on ${short(res.active)}`;
+  },
+  message(r) {
+    if (!r.ok) return r.error.code;
+    const res = r.result as { active: string; previous: string; checkpoint: string };
+    return `${r.already_executed ? "Already executed earlier. " : ""}The session resumed on ${short(res.active)} from checkpoint ${res.checkpoint}, leaving ${short(res.previous)}. Tell the human, then call get_replay if they want the timeline.`;
   },
 };
 
@@ -288,6 +322,10 @@ export function invokeTool(store: RelayStore, name: string, input: unknown): Too
     result = { ok: false, error: { code: "INTERNAL_ERROR", message: error instanceof Error ? error.message : String(error) } };
   }
   const ended = typeof performance !== "undefined" ? performance.now() : Date.now();
-  store.finishAgentCall(replayId, result.ok, spec.summarize(result, safeInput), Math.round(ended - started));
-  return result;
+  const summary = spec.summarize(result, safeInput);
+  store.finishAgentCall(replayId, result.ok, summary, Math.round(ended - started));
+  // A one-sentence, human-readable line first, so an agent reading the JSON
+  // as text sees the outcome before the structured fields.
+  if (result.ok) return { ok: true, message: spec.message ? spec.message(result, safeInput, store) : summary, ...(result as object) } as ToolResult<unknown>;
+  return { ok: false, message: `${result.error.code}: ${result.error.message}${result.error.hint ? ` ${result.error.hint}` : ""}`, error: result.error };
 }
