@@ -1,5 +1,6 @@
 import { RelayStore } from "./runtime/state";
 import { buildDemoState } from "./runtime/demo";
+import type { Scenario } from "./runtime/types";
 import { connectLive } from "./runtime/live";
 import { registerRelayTools } from "./webmcp/register";
 import { runWalkthrough } from "./webmcp/walkthrough";
@@ -13,7 +14,11 @@ const ctx: UiContext = {
   webmcp: null,
   walkthroughRunning: false,
   onReset: () => {
-    store.replace(buildDemoState());
+    store.replace(buildDemoState(new Date(), store.get().scenario));
+  },
+  onScenario: (scenario: Scenario) => {
+    if (store.get().mode !== "demo") return;
+    store.replace(buildDemoState(new Date(), scenario));
   },
   onWalkthrough: () => {
     if (ctx.walkthroughRunning) return;
@@ -29,6 +34,21 @@ const ctx: UiContext = {
 bind(root, ctx);
 render(root, ctx);
 store.subscribe(() => render(root, ctx));
+
+// Countdowns and "resumed" liveness. In demo mode a resumed session shows a
+// handful of simulated completed requests (labelled scenario) so the state
+// after a handoff is visibly alive; the timer stops after a few.
+let resumedTicks = 0;
+setInterval(() => {
+  const state = store.get();
+  if (state.mode === "demo" && state.session.status === "running" && state.handoff?.status === "executed" && resumedTicks < 6) {
+    resumedTicks += 1;
+    store.simulateRequest();
+  } else if (state.session.status !== "running") {
+    resumedTicks = 0;
+    store.touch();
+  }
+}, 5000);
 
 // Live mode. The human's Approve click is also recorded by the local bridge,
 // which hands back a one-shot nonce. An executed handoff is then sent to the

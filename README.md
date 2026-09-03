@@ -2,6 +2,8 @@
 
 **A WebMCP control room where a human and a browser agent supervise a live coding-agent session together, and hand it between model providers without losing the work.**
 
+[![Test and deploy](https://github.com/Harshkamdar67/airlock-relay/actions/workflows/deploy.yml/badge.svg)](https://github.com/Harshkamdar67/airlock-relay/actions/workflows/deploy.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Live demo: **https://harshkamdar67.github.io/airlock-relay/**
 Built for [The WebMCP Challenge](https://webmcp.devpost.com/) on top of [Airlock](https://github.com/Harshkamdar67/Airlock). What is new for the challenge is listed in [WEBMCP_CHALLENGE.md](WEBMCP_CHALLENGE.md).
 
@@ -22,10 +24,10 @@ Nothing is inferred from the DOM. The page declares what a session, a route, and
 
 | Tool | Kind | What it does |
 | --- | --- | --- |
-| `get_session` | read | Task, active model and provider, blocked or running, why, context size, checkpoint. |
+| `get_session` | read | Task, active model and provider, blocked or running, why (`rate_limit` or `context_overflow`), context size against the active window, checkpoint. |
 | `get_events` | read | The router's event log: requests, 429s, cooldowns, failover attempts, handoff activity. Marked `untrustedContentHint` because summaries relay upstream text. |
-| `get_routes` | read | Every route with provider, tier, ready or cooldown, and whether it spends metered usage. |
-| `prepare_handoff` | write | Creates a proposal. Refuses cooldown routes and refuses metered routes unless `allow_metered` is true. Never switches anything. |
+| `get_routes` | read | Every route with provider, tier, context window, whether it fits the session's context, plan headroom for its provider, ready or cooldown, and whether it spends metered usage. |
+| `prepare_handoff` | write | Creates a proposal. Refuses cooldown routes, routes whose window is smaller than the session, and metered routes unless `allow_metered` is true. Each refusal lists alternatives. Never switches anything. |
 | `get_handoff` | read | Status, revision, target, every change the human made, and the approval token once approved. |
 | `execute_handoff` | write | Resumes the session on the approved route. Fails with `APPROVAL_REQUIRED` before approval and `STALE_APPROVAL` if the human edited after approving. Idempotent. |
 | `get_replay` | read | The attributed timeline: runtime, agent, and human actions in order. |
@@ -42,6 +44,12 @@ There is deliberately **no approve tool**. Approve and Reject exist only as butt
 5. Tell the agent "continue". It should re-read the proposal, notice your change and that you accepted metered usage, and execute. The session flips to running on Fable from checkpoint `cp_184`, and the Replay shows who did what.
 
 No WebMCP in your browser? Click **Run scripted walkthrough**. It calls the same tool entry point an agent would, pauses at the approval, and finishes after you approve.
+
+### Second scenario: context overflow
+
+Switch the scenario selector to **Context overflow**. A GPT-5.6 Sol session has outgrown its 400k window (412k tokens) and Airlock's own overflow failover to Terra failed for the same reason. No provider is rate limited, so the constraint the agent has to reason about is the context window: `get_routes` reports `fits_session_context` per route, and `prepare_handoff` refuses a route without room with `CONTEXT_EXCEEDS_ROUTE_WINDOW` and a list of routes that fit. The human's target selector only offers routes with room too. A good agent proposes Grok 4.6 (2M window, not metered) or Claude Opus 5 (1M).
+
+Every route also carries the provider's plan headroom (used percent of the 5-hour window and when it resets), the same numbers Airlock reads from Claude Code's status line, so the agent can avoid proposing a route that is about to hit its own limit.
 
 ## Demo mode and live mode
 
@@ -66,12 +74,20 @@ The bridge is a small standard-library Python program. It serves the same build 
 - The same handlers serve WebMCP, the scripted walkthrough, and the tests, so the agent path is never a special case.
 - Human actions and agent actions mutate one store and are both attributed in the replay. The approval token is the concrete mechanism that makes "the human decides" enforceable inside the page, and in live mode the bridge keeps its own approval record so a page script cannot reach the real command on its own.
 
+## Security posture
+
+- Tool results never include raw upstream bodies. Event summaries are short, generated strings, and the event log is marked `untrustedContentHint` so agents treat relayed provider text as data.
+- No tool can approve. The approval token exists only after a click in the page, is bound to the proposal revision, and is revoked by any edit. Execution is idempotent.
+- The store is not reachable from the console unless the page is opened with `?debug=1`.
+- The live bridge binds to 127.0.0.1, talks only to the router's loopback endpoints, records approvals itself, and refuses to run the real Airlock command without its own one-shot nonce. The Airlock router is not modified.
+- Nothing is stored server-side. The hosted page is static.
+
 ## Development
 
 ```bash
 npm install
 npm run dev          # Vite dev server
-npm test             # 17 Vitest tests on the state machine and tools
+npm test             # 22 Vitest tests on the state machine, both scenarios, and the tools
 npm run typecheck
 python -m unittest discover -s bridge -p "test_*.py"   # bridge tests
 npm run build && npx vite preview --port 4173

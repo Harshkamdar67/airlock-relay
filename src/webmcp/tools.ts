@@ -33,11 +33,12 @@ function publicEvent(e: RelayEvent) {
 export const getSession: ToolSpec<Record<string, never>, { session: unknown; handoff_id: string | null; next_step: string }> = {
   name: "get_session",
   description:
-    "Read the live state of the Airlock coding session this page supervises: the task, the active model and provider, whether the session is running or blocked and why, context size, and the last checkpoint. Call this first.",
+    "Read the live state of the Airlock coding session this page supervises: the task, the active model and provider, whether the session is running or blocked and why (rate_limit or context_overflow), context size against the active model's window, and the last checkpoint. Call this first.",
   inputSchema: { type: "object", properties: {}, additionalProperties: false },
   annotations: { readOnlyHint: true },
   run(store) {
-    const { session, handoff, mode } = store.get();
+    const { session, handoff, mode, scenario, routes } = store.get();
+    const active = routes.find((r) => r.id === session.activeModel || r.id.replace(/\[1m\]$/, "") === session.activeModel.replace(/\[1m\]$/, ""));
     const next_step =
       session.status === "blocked"
         ? handoff
@@ -49,6 +50,7 @@ export const getSession: ToolSpec<Record<string, never>, { session: unknown; han
       session: {
         id: session.id,
         mode,
+        scenario: mode === "demo" ? scenario : null,
         task: session.task,
         profile: session.profile,
         active_model: session.activeModel,
@@ -56,6 +58,7 @@ export const getSession: ToolSpec<Record<string, never>, { session: unknown; han
         status: session.status,
         blocked_reason: session.blockedReason ?? null,
         context_tokens: session.contextTokens,
+        context_window: active?.contextWindow ?? null,
         checkpoint: session.checkpoint,
         workdir: session.workdir,
         started_at: session.startedAt,
@@ -108,7 +111,7 @@ export const getEvents: ToolSpec<GetEventsInput, { events: unknown[]; total: num
 export const getRoutes: ToolSpec<Record<string, never>, { routes: unknown[]; active_model: string }> = {
   name: "get_routes",
   description:
-    "List every model route Airlock can hand this session to, with provider, capability tier, whether it is ready or on cooldown, and whether using it spends metered extra usage. Prefer ready, non-metered routes unless the human said otherwise.",
+    "List every model route Airlock can hand this session to, with provider, capability tier, context window, plan headroom for its provider, whether it is ready or on cooldown, and whether using it spends metered extra usage. Prefer ready, non-metered routes whose context window fits the session, unless the human said otherwise.",
   inputSchema: { type: "object", properties: {}, additionalProperties: false },
   annotations: { readOnlyHint: true },
   run(store) {
@@ -125,6 +128,8 @@ export const getRoutes: ToolSpec<Record<string, never>, { routes: unknown[]; act
         cooldown_until: r.cooldownUntil ?? null,
         metered: r.metered,
         context_window: r.contextWindow,
+        fits_session_context: r.contextWindow >= session.contextTokens,
+        provider_headroom: r.headroom ? { window: r.headroom.window, used_percent: r.headroom.usedPercent, resets_at: r.headroom.resetsAt } : null,
         is_active: short(r.id) === short(session.activeModel),
       })),
     };
@@ -148,7 +153,7 @@ export interface PrepareHandoffToolInput {
 export const prepareHandoff: ToolSpec<PrepareHandoffToolInput, { handoff: unknown; next_step: string }> = {
   name: "prepare_handoff",
   description:
-    "Propose moving the blocked session to another route. This does not switch anything: it creates a proposal the human reviews, may edit, and must approve in the page. Metered routes are refused unless allow_metered is true. Returns the proposal id to poll with get_handoff.",
+    "Propose moving the blocked session to another route. This does not switch anything: it creates a proposal the human reviews, may edit, and must approve in the page. Refused when the route is on cooldown, when its context window is smaller than the session, or when it is metered and allow_metered is not true; each refusal lists alternatives. Returns the proposal id to poll with get_handoff.",
   inputSchema: {
     type: "object",
     properties: {

@@ -187,6 +187,19 @@ export class RelayStore {
         },
       };
     }
+    if (session.contextTokens > target.contextWindow) {
+      const roomy = routes.filter((r) => r.status === "ready" && r.contextWindow >= session.contextTokens && shortModel(r.id) !== shortModel(session.activeModel));
+      return {
+        ok: false,
+        error: {
+          code: "CONTEXT_EXCEEDS_ROUTE_WINDOW",
+          message: `The conversation is ${Math.round(session.contextTokens / 1000)}k tokens and ${target.label} accepts ${Math.round(target.contextWindow / 1000)}k.`,
+          hint: "Pick a route whose context_window is at least the session's context_tokens, or ask the human whether compaction is acceptable.",
+          context_tokens: session.contextTokens,
+          routes_with_room: roomy.map((r) => ({ id: r.id, label: r.label, tier: r.tier, metered: r.metered, context_window: r.contextWindow })),
+        },
+      };
+    }
     if (typeof input.reason !== "string" || input.reason.trim().length < 8) {
       return {
         ok: false,
@@ -299,6 +312,30 @@ export class RelayStore {
     return { ok: true, handoff: executed, result, already_executed: false };
   }
 
+  /** Demo mode: one simulated completed request on the active model, labelled scenario. */
+  simulateRequest(): void {
+    const { session, routes } = this.state;
+    if (session.status !== "running") return;
+    const route = routes.find((r) => shortModel(r.id) === shortModel(session.activeModel));
+    const outputTokens = 400 + Math.floor(Math.random() * 1800);
+    const durationMs = 2200 + Math.floor(Math.random() * 9000);
+    const event: RelayEvent = {
+      id: this.nextEventId++,
+      at: this.now(),
+      source: "scenario",
+      kind: "request_completed",
+      summary: `${shortModel(session.activeModel)} completed in ${(durationMs / 1000).toFixed(1)}s, ${(session.contextTokens / 1000).toFixed(1)}k in / ${outputTokens} out`,
+      detail: { provider: route?.provider, model: session.activeModel, status: 200, outcome: "completed", duration_ms: durationMs },
+    };
+    this.state = { ...this.state, events: [...this.state.events, event], session: { ...session, contextTokens: session.contextTokens + Math.floor(outputTokens * 0.7) } };
+    this.emit();
+  }
+
+  /** Re-emit without changes so time-based UI (countdowns) can refresh. */
+  touch(): void {
+    this.emit();
+  }
+
   /** Live mode: record what the local bridge did with an approved handoff. */
   recordBridgeResult(summary: string, detail?: Record<string, unknown>): void {
     this.pushEvent("bridge_result", summary, detail);
@@ -319,6 +356,7 @@ export class RelayStore {
     const h = this.editable();
     const target = this.state.routes.find((r) => r.id === targetId);
     if (!h || !target || target.status !== "ready" || target.id === h.target) return false;
+    if (target.contextWindow < this.state.session.contextTokens) return false;
     const revision = h.revision + 1;
     const note = target.metered && !h.allowMetered ? "Human chose a metered route; that overrides the proposal's allow_metered=false." : undefined;
     const next: Handoff = {

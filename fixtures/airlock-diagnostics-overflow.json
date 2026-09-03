@@ -1,0 +1,24 @@
+{
+  "_about": "Second demo scenario: a GPT-5.6 Sol session whose conversation outgrew the 400k window. All events are seeded (source=scenario) in the exact shapes the Airlock router emits for context overflow: upstream_context_overflow, failover_overflow_attempted, failover_shrink_failed, overflow_chain_exhausted. No provider is rate limited here, so the constraint the agent has to reason about is the context window, not cooldowns.",
+  "instance_id": "REDACTED",
+  "profile": "hybrid-openai-root",
+  "root_model": "gpt-5.6-sol",
+  "root_provider": "openai",
+  "rate_limit_cooldowns": [],
+  "rate_limit_provider_cooldowns": [],
+  "events": [
+    {"kind":"session_model_pinned","profile":"hybrid-openai-root","model":"gpt-5.6-sol","provider":"openai","timestamp":"2026-09-03T04:12:10Z","source":"scenario"},
+    {"provider":"openai","model":"gpt-5.6-sol","status":200,"request_bytes":612040,"response_bytes":21877,"duration_ms":38120,"outcome":"completed","usage":{"input_tokens":2210,"output_tokens":1904,"cache_creation_input_tokens":0,"cache_read_input_tokens":381900},"timestamp":"2026-09-03T05:58:41Z","source":"scenario"},
+    {"provider":"openai","model":"gpt-5.6-luna","status":200,"request_bytes":88210,"response_bytes":3120,"duration_ms":4210,"outcome":"completed","usage":{"input_tokens":21400,"output_tokens":388,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"timestamp":"2026-09-03T06:01:05Z","source":"scenario"},
+    {"provider":"openai","model":"gpt-5.6-sol","status":200,"request_bytes":688412,"response_bytes":30214,"duration_ms":41870,"outcome":"completed","usage":{"input_tokens":3010,"output_tokens":2612,"cache_creation_input_tokens":0,"cache_read_input_tokens":396100},"timestamp":"2026-09-03T06:09:32Z","source":"scenario"},
+    {"kind":"upstream_context_overflow","provider":"openai","model":"gpt-5.6-sol","status":400,"prompt_tokens":412300,"limit_tokens":400000,"timestamp":"2026-09-03T06:14:08Z","source":"scenario"},
+    {"kind":"failover_overflow_attempted","from_model":"gpt-5.6-sol","to_model":"gpt-5.6-terra","timestamp":"2026-09-03T06:14:08Z","source":"scenario"},
+    {"kind":"upstream_context_overflow","provider":"openai","model":"gpt-5.6-terra","status":400,"prompt_tokens":412300,"limit_tokens":400000,"timestamp":"2026-09-03T06:14:09Z","source":"scenario"},
+    {"kind":"failover_shrink_failed","model":"gpt-5.6-sol","reason":"compaction would drop the active tool results","timestamp":"2026-09-03T06:14:10Z","source":"scenario"},
+    {"kind":"overflow_chain_exhausted","model":"gpt-5.6-sol","last_model":"gpt-5.6-terra","models_considered":2,"timestamp":"2026-09-03T06:14:10Z","source":"scenario"}
+  ],
+  "summary": [
+    {"provider":"openai","model":"gpt-5.6-sol","requests":48,"completed":47,"errors":1,"usage_events":47,"input_tokens":104220,"output_tokens":88410,"cache_creation_input_tokens":0,"cache_read_input_tokens":11204400},
+    {"provider":"openai","model":"gpt-5.6-luna","requests":19,"completed":19,"errors":0,"usage_events":19,"input_tokens":301200,"output_tokens":6120,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}
+  ]
+}

@@ -7,6 +7,16 @@ export type RouteTier = "frontier" | "general" | "utility";
 
 export type RouteStatus = "ready" | "cooldown" | "disabled";
 
+/** Plan usage for a provider, the way Airlock's status line reads it. */
+export interface Headroom {
+  /** "5h", "7d", or "credits". */
+  window: string;
+  usedPercent: number;
+  resetsAt: string;
+}
+
+export type Scenario = "rate_limit" | "context_overflow";
+
 export interface Route {
   /** Exact model id as Airlock's router knows it. */
   id: string;
@@ -20,6 +30,7 @@ export interface Route {
   /** ISO timestamp, only present while status is "cooldown". */
   cooldownUntil?: string;
   contextWindow: number;
+  headroom?: Headroom;
 }
 
 export type SessionStatus = "running" | "blocked" | "resuming";
@@ -127,6 +138,7 @@ export type RelayMode = "demo" | "live";
 
 export interface RelayState {
   mode: RelayMode;
+  scenario: Scenario;
   session: SessionState;
   routes: Route[];
   events: RelayEvent[];

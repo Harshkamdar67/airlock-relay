@@ -10,10 +10,10 @@
 | Shared human and agent state | One store both parties mutate, with actor attribution, revisions, approval tokens bound to a revision, idempotent execution. | `src/runtime/state.ts`, `src/runtime/types.ts` |
 | Control room UI | Session, routes, editable handoff proposal with Approve and Reject, agent activity rail, runtime events, replay. | `src/ui/` |
 | Airlock adapter | Turns a router diagnostics report into route availability and readable events. Used by both demo and live modes. | `src/runtime/airlock-adapter.ts` |
-| Demo session | Deterministic state built from a real diagnostics export, with real and seeded events labelled. | `src/runtime/demo.ts`, `fixtures/` |
+| Demo sessions | Two deterministic scenarios (rate limit, context overflow) built from router-shaped diagnostics reports, with real and seeded events labelled, plus per-provider plan headroom on every route. | `src/runtime/demo.ts`, `fixtures/` |
 | Live bridge | Loopback Python bridge feeding the page from a running Airlock router and applying approved handoffs with Airlock's own command. | `bridge/relay.py`, `bridge/test_relay.py` |
 | Scripted walkthrough | A no-agent path through the same tool entry point, for browsers without WebMCP. | `src/webmcp/walkthrough.ts` |
-| Tests | 17 Vitest tests on policy, approval, staleness, idempotency, and attribution; 6 bridge tests; a Chrome smoke test that drives the tools through `executeTool`. | `tests/`, `bridge/test_relay.py`, `scripts/webmcp-smoke.mjs` |
+| Tests | 22 Vitest tests on policy (metered, cooldown, context window), approval, staleness, idempotency, and attribution; 9 bridge tests including the approval nonce; a Chrome smoke test that drives the tools through `executeTool`. | `tests/`, `bridge/test_relay.py`, `scripts/webmcp-smoke.mjs` |
 
 ## What Airlock itself provides (pre-existing, not judged)
 

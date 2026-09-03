@@ -16,12 +16,12 @@ export async function runWalkthrough(store: RelayStore, pace = 900): Promise<voi
   await sleep(pace);
   const routes = call("get_routes");
   await sleep(pace);
-  const ready = (routes.routes as Array<{ id: string; metered: boolean; tier: string; status: string; is_active: boolean }>).filter((r) => r.status === "ready" && !r.is_active);
+  const ready = (routes.routes as Array<{ id: string; metered: boolean; tier: string; status: string; is_active: boolean; fits_session_context: boolean }>).filter((r) => r.status === "ready" && !r.is_active && r.fits_session_context);
   const pick = ready.find((r) => !r.metered && r.tier === "frontier") ?? ready.find((r) => !r.metered) ?? ready[0];
   if (!pick || session.session.status !== "blocked") return;
   const prepared = call("prepare_handoff", {
     target: pick.id,
-    reason: `${pick.id} is ready, ${pick.tier} tier, and does not spend metered usage. Checkpoint, worktree, and task are preserved.`,
+    reason: `${pick.id} is ready, ${pick.tier} tier, fits the session's context, and does not spend metered usage. Checkpoint, worktree, and task are preserved.`,
   });
   if (!prepared.ok) return;
   const id = prepared.handoff.id as string;
