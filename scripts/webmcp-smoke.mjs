@@ -74,7 +74,10 @@ if (probe.available && probe.tools?.length) {
   const ok = session.ok && !refusedMetered.ok && prepared.ok && !early.ok && executed.ok && after.session.status === "running" && after.session.active_model === "claude-fable-5-1[1m]";
   console.log(ok ? "SMOKE OK" : "SMOKE FAILED");
   exit = ok ? 0 : 1;
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await new Promise((r) => setTimeout(r, 400));
   await page.screenshot({ path: "docs/screenshot-after-handoff.png" });
+  await page.screenshot({ path: "video/after-full.png", fullPage: true });
 } else {
   console.log("Tools not visible through WebMCP. Try WEBMCP_FEATURES=<name> or enable chrome://flags/#enable-webmcp-testing.");
   exit = 2;

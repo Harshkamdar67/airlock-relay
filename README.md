@@ -38,7 +38,7 @@ There is deliberately **no approve tool**. Approve and Reject exist only as butt
 
 ## Try it in two minutes
 
-1. Open the live URL in the **ChatGPT desktop app's browser**, or in **Chrome 149+** with `chrome://flags/#enable-webmcp-testing` enabled and Chrome relaunched. The pill in the top bar should say "WebMCP: 7 tools registered".
+1. Open the live URL in the **ChatGPT desktop app's browser**, or in **Chrome 149+** with `chrome://flags/#enable-webmcp-testing` enabled and Chrome relaunched (verified on Chrome 152.0.7977.65 on Windows, both through the flag and through `--enable-features=WebMCPTesting`). The pill in the top bar should say "WebMCP · 7 tools".
 2. Ask the agent:
    > My Airlock coding session looks blocked. Inspect what happened, then get it running again on a route that is ready and does not spend metered usage. Do not change the active model until I approve the handoff in this page.
 3. Watch the Agent activity rail. The agent should read the session, events, and routes, then propose a handoff to a ready non-metered route such as GPT-5.6 Sol. If it tries to execute early, the page refuses.
@@ -50,6 +50,8 @@ No WebMCP in your browser? Click **Run scripted walkthrough**. It calls the same
 ### Second scenario: context overflow
 
 Switch the scenario selector to **Context overflow**. A GPT-5.6 Sol session has outgrown its 400k window (412k tokens) and Airlock's own overflow failover to Terra failed for the same reason. No provider is rate limited, so the constraint the agent has to reason about is the context window: `get_routes` reports `fits_session_context` per route, and `prepare_handoff` refuses a route without room with `CONTEXT_EXCEEDS_ROUTE_WINDOW` and a list of routes that fit. The human's target selector only offers routes with room too. A good agent proposes Grok 4.6 (2M window, not metered) or Claude Opus 5 (1M).
+
+![Context overflow scenario](docs/screenshot-overflow.png)
 
 Every route also carries the provider's plan headroom (used percent of the 5-hour window and when it resets), the same numbers Airlock reads from Claude Code's status line, so the agent can avoid proposing a route that is about to hit its own limit.
 

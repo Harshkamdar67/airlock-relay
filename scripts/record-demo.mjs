@@ -37,25 +37,25 @@ const OVERLAY_CSS = `
 #rc-cursor { position: fixed; z-index: 99999; width: 22px; height: 22px; pointer-events: none; transform: translate(-3px,-2px); transition: left .55s cubic-bezier(.2,.8,.2,1), top .55s cubic-bezier(.2,.8,.2,1); left: 720px; top: 460px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
 #rc-cursor.click { animation: rc-click .35s ease; }
 @keyframes rc-click { 0% { transform: translate(-3px,-2px) scale(1);} 40% { transform: translate(-3px,-2px) scale(.8);} 100% { transform: translate(-3px,-2px) scale(1);} }
-#rc-agent { position: fixed; right: 20px; bottom: 20px; width: 400px; max-height: 46vh; z-index: 99990; background: #0d141dee; border: 1px solid #2a3749; border-radius: 12px; box-shadow: 0 14px 40px rgba(0,0,0,.55); font: 13px/1.45 Inter, system-ui, sans-serif; color: #e6edf5; display: flex; flex-direction: column; overflow: hidden; opacity: 0; transform: translateY(12px); transition: opacity .4s, transform .4s; }
+#rc-agent { position: fixed; right: 20px; bottom: 20px; width: 400px; max-height: 46vh; z-index: 99990; background: #fffffff2; border: 1px solid #cfc9bd; border-radius: 14px; box-shadow: 0 18px 44px -12px rgba(21,23,28,.35); font: 13px/1.45 Inter, system-ui, sans-serif; color: #15171c; display: flex; flex-direction: column; overflow: hidden; opacity: 0; transform: translateY(12px); transition: opacity .4s, transform .4s; }
 #rc-agent.show { opacity: 1; transform: none; }
-#rc-agent header { padding: 9px 12px; border-bottom: 1px solid #1f2a3a; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #8b9bb0; display: flex; gap: 8px; align-items: center; }
-#rc-agent header i { width: 8px; height: 8px; border-radius: 50%; background: #6fb3ff; display: inline-block; }
-#rc-agent header small { margin-left: auto; text-transform: none; letter-spacing: 0; color: #5f6f85; font-size: 10.5px; }
+#rc-agent header { padding: 9px 12px; border-bottom: 1px solid #e4e0d7; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6b7280; display: flex; gap: 8px; align-items: center; }
+#rc-agent header i { width: 8px; height: 8px; border-radius: 50%; background: #0f766e; display: inline-block; }
+#rc-agent header small { margin-left: auto; text-transform: none; letter-spacing: 0; color: #9aa2af; font-size: 10.5px; }
 #rc-agent .msgs { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; overflow: auto; }
 #rc-agent .m { padding: 8px 11px; border-radius: 10px; max-width: 92%; white-space: pre-wrap; }
-#rc-agent .m.user { align-self: flex-end; background: #1d2a3d; }
-#rc-agent .m.agent { align-self: flex-start; background: #12202a; border: 1px solid #1f3a33; }
-#rc-agent .m.agent b { color: #58d3a7; }
-#rc-agent .m.tool { align-self: flex-start; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: #8b9bb0; padding: 2px 6px; }
-#rc-ring { position: fixed; z-index: 99980; border: 2px solid #58d3a7; border-radius: 999px; pointer-events: none; opacity: 0; transition: all .4s; box-shadow: 0 0 0 6px rgba(88,211,167,.18); }
+#rc-agent .m.user { align-self: flex-end; background: #efe9fb; color: #15171c; }
+#rc-agent .m.agent { align-self: flex-start; background: #e6f4f1; border: 1px solid #bfe1da; }
+#rc-agent .m.agent b { color: #0f766e; }
+#rc-agent .m.tool { align-self: flex-start; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: #6b7280; padding: 2px 6px; }
+#rc-ring { position: fixed; z-index: 99980; border: 2px solid #6d28d9; border-radius: 16px; pointer-events: none; opacity: 0; transition: all .4s; box-shadow: 0 0 0 6px rgba(109,40,217,.14); }
 #rc-ring.show { opacity: 1; }
-#rc-end { position: fixed; inset: 0; z-index: 99995; background: #0b1017; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; opacity: 0; transition: opacity .6s; font-family: Inter, system-ui, sans-serif; }
+#rc-end { position: fixed; inset: 0; z-index: 99995; background: #f6f4ef; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; opacity: 0; transition: opacity .6s; font-family: Inter, system-ui, sans-serif; }
 #rc-end.show { opacity: 1; }
-#rc-end h1 { margin: 0; font-size: 40px; letter-spacing: .14em; color: #e6edf5; display: flex; align-items: center; gap: 16px; }
-#rc-end h1 i { width: 22px; height: 22px; border-radius: 50%; background: #58d3a7; box-shadow: 0 0 0 8px rgba(88,211,167,.15); }
-#rc-end p { margin: 0; color: #8b9bb0; font-size: 18px; }
-#rc-end code { color: #58d3a7; font-size: 20px; }
+#rc-end h1 { margin: 0; font-family: Fraunces, Georgia, serif; font-size: 52px; font-weight: 500; letter-spacing: -0.02em; color: #15171c; display: flex; align-items: center; gap: 18px; }
+#rc-end h1 i { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #0f766e 0 34%, transparent 36%), conic-gradient(from 200deg, #6d28d9, #0f766e, #1d4ed8, #6d28d9); }
+#rc-end p { margin: 0; color: #3a3f4a; font-size: 18px; }
+#rc-end code { color: #0f766e; font-size: 20px; font-family: "JetBrains Mono", Consolas, monospace; }
 `;
 
 async function installOverlay() {
@@ -257,7 +257,7 @@ await ring(null);
 await waitUntil(at("outro", 0.15));
 await page.evaluate(() => {
   const end = document.createElement("div"); end.id = "rc-end";
-  end.innerHTML = `<h1><i></i>AIRLOCK RELAY</h1><p>A WebMCP control room for humans and agents supervising coding sessions together</p><code>harshkamdar67.github.io/airlock-relay</code><p>github.com/Harshkamdar67/airlock-relay</p>`;
+  end.innerHTML = `<h1><i></i>Airlock Relay</h1><p>A WebMCP control room for humans and agents supervising coding sessions together</p><code>harshkamdar67.github.io/airlock-relay</code><p>github.com/Harshkamdar67/airlock-relay</p>`;
   document.body.appendChild(end); requestAnimationFrame(() => end.classList.add("show"));
 });
 await waitUntil(total);

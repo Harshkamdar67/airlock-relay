@@ -119,7 +119,7 @@ export const getEvents: ToolSpec<GetEventsInput, { events: unknown[]; total: num
 export const getRoutes: ToolSpec<Record<string, never>, { routes: unknown[]; active_model: string }> = {
   name: "get_routes",
   description:
-    "List every model route Airlock can hand this session to, with provider, capability tier, context window, plan headroom for its provider, whether it is ready or on cooldown, and whether using it spends metered extra usage. Prefer ready, non-metered routes whose context window fits the session, unless the human said otherwise.",
+    "List every model route Airlock can hand this session to, with provider, capability tier, context window, whether it fits the session's context, plan headroom for its provider, whether it is ready or on cooldown, and whether using it spends metered extra usage. The message line names the routes that are ready, fit, and are not metered.",
   inputSchema: { type: "object", properties: {}, additionalProperties: false },
   annotations: { readOnlyHint: true },
   run(store) {

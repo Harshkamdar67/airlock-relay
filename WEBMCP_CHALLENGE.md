@@ -13,7 +13,7 @@
 | Demo sessions | Two deterministic scenarios (rate limit, context overflow) built from router-shaped diagnostics reports, with real and seeded events labelled, plus per-provider plan headroom on every route. | `src/runtime/demo.ts`, `fixtures/` |
 | Live bridge | Loopback Python bridge: discovers the router and the Claude Code session id, pushes a notification when the session blocks, records approvals with one-shot nonces, persists approved handoffs with Airlock's own command, and opens a terminal that resumes the same conversation on the approved model. | `bridge/relay.py`, `bridge/test_relay.py` |
 | Scripted walkthrough | A no-agent path through the same tool entry point, for browsers without WebMCP. | `src/webmcp/walkthrough.ts` |
-| Tests | 22 Vitest tests on policy (metered, cooldown, context window), approval, staleness, idempotency, and attribution; 9 bridge tests including the approval nonce; a Chrome smoke test that drives the tools through `executeTool`. | `tests/`, `bridge/test_relay.py`, `scripts/webmcp-smoke.mjs` |
+| Tests | 22 Vitest tests on policy (metered, cooldown, context window), approval, staleness, idempotency, and attribution; 22 bridge tests including approvals, session discovery, ingest, and webhooks; a Chrome smoke test that drives the tools through `executeTool`. | `tests/`, `bridge/test_relay.py`, `scripts/webmcp-smoke.mjs` |
 
 ## What Airlock itself provides (pre-existing, not judged)
 
