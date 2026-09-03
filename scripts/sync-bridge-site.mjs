@@ -13,7 +13,7 @@ const site = path.join(root, "bridge", "site");
 const check = process.argv.includes("--check");
 
 function normalize(buffer) {
-  return Buffer.from(buffer.toString("utf8").split("\r\n").join("\n"), "utf8");
+  return Buffer.from(buffer.toString("utf8").split("\r").join(""), "utf8");
 }
 
 function walk(dir, base = dir, out = {}) {
