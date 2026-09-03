@@ -132,10 +132,10 @@ export class RelayStore {
     return entry.id;
   }
 
-  finishAgentCall(replayId: number, ok: boolean, summary: string, durationMs: number): void {
+  finishAgentCall(replayId: number, ok: boolean, summary: string, durationMs: number, output?: string): void {
     const pending = this.pendingCalls.get(replayId);
     this.pendingCalls.delete(replayId);
-    const call: AgentCall = { id: this.nextCallId++, at: pending?.startedAt ?? this.now(), tool: pending?.tool ?? "?", input: pending?.input, ok, summary, durationMs };
+    const call: AgentCall = { id: this.nextCallId++, at: pending?.startedAt ?? this.now(), tool: pending?.tool ?? "?", input: pending?.input, ok, summary, durationMs, output };
     const replay = this.state.replay.map((e) => (e.id === replayId ? { ...e, detail: summary } : e));
     this.state = { ...this.state, replay, agentCalls: [...this.state.agentCalls, call] };
     this.emit();

@@ -26,6 +26,155 @@ const ACTOR_LABEL: Record<ReplayEntry["actor"], string> = { runtime: "Runtime", 
 
 // UI-only state that survives re-renders.
 const collapsed = new Set<string>(["events"]);
+const expandedCalls = new Set<number>();
+interface Toast { id: number; kind: "ok" | "warn" | "info"; text: string; at: number }
+const toasts: Toast[] = [];
+let toastSeq = 0;
+let seenEventId = -1;
+let paletteOpen = false;
+let paletteQuery = "";
+let paletteIndex = 0;
+let shortcutsOpen = false;
+let rerender: (() => void) | null = null;
+
+const TOAST_KINDS: Record<string, { kind: Toast["kind"]; text: (summary: string) => string }> = {
+  handoff_proposed: { kind: "info", text: (s) => s },
+  execute_refused: { kind: "warn", text: (s) => s },
+  handoff_approved: { kind: "ok", text: (s) => s },
+  handoff_edited: { kind: "info", text: (s) => s },
+  handoff_executed: { kind: "ok", text: (s) => s },
+  session_resumed: { kind: "ok", text: (s) => s },
+  handoff_rejected: { kind: "warn", text: (s) => s },
+  bridge_result: { kind: "info", text: (s) => s },
+};
+
+function pushToast(kind: Toast["kind"], text: string): void {
+  toasts.push({ id: ++toastSeq, kind, text, at: Date.now() });
+  while (toasts.length > 3) toasts.shift();
+  setTimeout(() => {
+    const cutoff = Date.now() - 5200;
+    let removed = false;
+    for (let i = toasts.length - 1; i >= 0; i -= 1) if (toasts[i].at < cutoff) { toasts.splice(i, 1); removed = true; }
+    if (removed) rerender?.();
+  }, 5400);
+}
+
+function collectToasts(state: RelayState): void {
+  if (seenEventId < 0) {
+    seenEventId = state.events.reduce((m, e) => Math.max(m, e.id), 0);
+    return;
+  }
+  for (const e of state.events) {
+    if (e.id <= seenEventId || e.source !== "relay") continue;
+    const spec = TOAST_KINDS[e.kind];
+    if (spec) pushToast(spec.kind, spec.text(e.summary));
+  }
+  seenEventId = state.events.reduce((m, e) => Math.max(m, e.id), seenEventId);
+}
+
+function buildReport(state: RelayState): string {
+  const s = state.session;
+  const h = state.handoff;
+  const lines = [
+    `# Airlock Relay incident report`,
+    ``,
+    `- Session: ${s.id} (${s.profile}), task: ${s.task}`,
+    `- Status: ${s.status}${s.blockedReason ? ` (${s.blockedReason})` : ""}, active model ${s.activeModel}, context ${s.contextTokens} tokens, checkpoint ${s.checkpoint}`,
+    h ? `- Handoff ${h.id} rev ${h.revision}: ${h.from} -> ${h.target}, ${h.status.replace("_", " ")}, proposed by ${h.createdBy}` : `- Handoff: none`,
+    h ? `- Reason: ${h.reason}` : ``,
+    ``,
+    `## Timeline`,
+    ``,
+    ...state.replay.map((e) => `- ${e.at} ${ACTOR_LABEL[e.actor]}: ${e.action}${e.detail ? ` (${e.detail})` : ""}`),
+  ];
+  return lines.filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
+}
+
+interface PaletteAction { id: string; label: string; hint?: string; run: () => void; when?: boolean }
+
+function paletteActions(ctx: UiContext, state: RelayState): PaletteAction[] {
+  const h = state.handoff;
+  const editable = !!h && (h.status === "pending_approval" || h.status === "approved");
+  const actions: PaletteAction[] = [
+    { id: "approve", label: "Approve handoff", hint: "A", when: editable && h?.status !== "approved", run: () => ctx.store.humanApprove() },
+    { id: "reject", label: "Reject handoff", hint: "R", when: editable, run: () => ctx.store.humanReject() },
+    { id: "resume", label: "Resume in a new terminal", when: state.mode === "live" && h?.status === "executed", run: () => ctx.onResume() },
+    { id: "copy-prompt", label: "Copy the prompt for your agent", when: state.session.status === "blocked" && !h, run: () => { void navigator.clipboard?.writeText(SUGGESTED_PROMPT); pushToast("ok", "Prompt copied"); } },
+    { id: "report", label: "Copy incident report (Markdown)", run: () => { void navigator.clipboard?.writeText(buildReport(state)); pushToast("ok", "Incident report copied"); } },
+    { id: "walkthrough", label: "Run the scripted walkthrough", when: !ctx.walkthroughRunning, run: () => ctx.onWalkthrough() },
+    { id: "scenario-rate", label: "Scenario: rate limit", when: state.mode === "demo" && state.scenario !== "rate_limit", run: () => ctx.onScenario("rate_limit") },
+    { id: "scenario-overflow", label: "Scenario: context overflow", when: state.mode === "demo" && state.scenario !== "context_overflow", run: () => ctx.onScenario("context_overflow") },
+    { id: "reset", label: "Reset the demo", when: state.mode === "demo", run: () => ctx.onReset() },
+    { id: "toggle-events", label: collapsed.has("events") ? "Show runtime events" : "Hide runtime events", run: () => { if (collapsed.has("events")) collapsed.delete("events"); else collapsed.add("events"); } },
+    { id: "toggle-routes", label: collapsed.has("routes") ? "Show routes" : "Hide routes", run: () => { if (collapsed.has("routes")) collapsed.delete("routes"); else collapsed.add("routes"); } },
+    { id: "shortcuts", label: "Keyboard shortcuts", hint: "?", run: () => { shortcutsOpen = true; } },
+    { id: "overview", label: "Go to overview", run: () => { location.href = "../"; } },
+    { id: "connect", label: "Go to connect guide", run: () => { location.href = "../connect/"; } },
+  ];
+  const q = paletteQuery.trim().toLowerCase();
+  return actions.filter((a) => a.when !== false && (!q || a.label.toLowerCase().includes(q)));
+}
+
+function renderPalette(ctx: UiContext, state: RelayState): string {
+  if (!paletteOpen) return "";
+  const actions = paletteActions(ctx, state);
+  const idx = Math.min(paletteIndex, Math.max(0, actions.length - 1));
+  return `
+    <div class="overlay" data-overlay="palette" role="dialog" aria-modal="true" aria-label="Command palette">
+      <div class="palette">
+        <input class="palette-input" data-palette-input placeholder="Type a command…" value="${esc(paletteQuery)}" autocomplete="off" spellcheck="false" />
+        <ul class="palette-list" role="listbox">
+          ${actions.length ? actions.map((a, i) => `<li role="option" aria-selected="${i === idx}" class="${i === idx ? "active" : ""}" data-palette-action="${a.id}"><span>${esc(a.label)}</span>${a.hint ? `<kbd>${esc(a.hint)}</kbd>` : ""}</li>`).join("") : `<li class="empty">No matching command</li>`}
+        </ul>
+        <div class="palette-foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> run</span><span><kbd>esc</kbd> close</span></div>
+      </div>
+    </div>`;
+}
+
+function renderShortcuts(): string {
+  if (!shortcutsOpen) return "";
+  return `
+    <div class="overlay" data-overlay="shortcuts" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+      <div class="palette shortcuts">
+        <h3>Keyboard shortcuts</h3>
+        <dl>
+          <div><dt><kbd>Ctrl</kbd><kbd>K</kbd></dt><dd>Command palette</dd></div>
+          <div><dt><kbd>A</kbd></dt><dd>Approve the pending handoff</dd></div>
+          <div><dt><kbd>R</kbd></dt><dd>Reject the pending handoff</dd></div>
+          <div><dt><kbd>C</kbd></dt><dd>Copy the agent prompt</dd></div>
+          <div><dt><kbd>E</kbd></dt><dd>Toggle runtime events</dd></div>
+          <div><dt><kbd>?</kbd></dt><dd>This list</dd></div>
+          <div><dt><kbd>Esc</kbd></dt><dd>Close</dd></div>
+        </dl>
+      </div>
+    </div>`;
+}
+
+function renderToasts(): string {
+  if (!toasts.length) return "";
+  return `<div class="toasts" aria-live="polite">${toasts.map((t) => `<div class="toast ${t.kind}">${icon(t.kind === "ok" ? "check" : t.kind === "warn" ? "alert" : "relay")}<span>${esc(t.text)}</span></div>`).join("")}</div>`;
+}
+
+function renderPipeline(state: RelayState): string {
+  const calls = new Set(state.agentCalls.map((c) => c.tool));
+  const h = state.handoff;
+  const readsDone = calls.has("get_session") && calls.has("get_routes");
+  const readsStarted = calls.size > 0;
+  const proposalDone = !!h && h.status !== "superseded";
+  const approvalDone = !!h && (h.status === "approved" || h.status === "executed");
+  const executedDone = !!h && h.status === "executed";
+  const rejected = h?.status === "rejected";
+  const stages = [
+    { label: "Agent reads", who: "agent", done: readsDone, active: !readsDone && (readsStarted || state.session.status === "blocked") },
+    { label: "Agent proposes", who: "agent", done: proposalDone, active: readsDone && !proposalDone },
+    { label: "You approve", who: "human", done: approvalDone, active: proposalDone && !approvalDone && !rejected, failed: rejected },
+    { label: "Agent executes", who: "agent", done: executedDone, active: approvalDone && !executedDone },
+  ];
+  return `
+    <ol class="pipeline" aria-label="Handoff progress">
+      ${stages.map((s, i) => `<li class="${s.done ? "done" : s.active ? "active" : ""}${(s as { failed?: boolean }).failed ? " failed" : ""} ${s.who}"><span class="p-n">${s.done ? icon("check") : (s as { failed?: boolean }).failed ? icon("x") : i + 1}</span><span class="p-l">${s.label}</span></li>`).join("")}
+    </ol>`;
+}
 
 // ---- Icons (16px, 1.7px stroke) -----------------------------------------------
 
@@ -201,6 +350,7 @@ function renderStatus(ctx: UiContext, state: RelayState): string {
       <span><b>Checkpoint</b><span class="mono">${esc(s.checkpoint)}</span></span>
       <span><b>Worktree</b><span class="mono" title="${esc(s.workdir)}">${esc(s.workdir)}</span></span>
     </div>
+    ${renderPipeline(state)}
     ${callout}`;
 }
 
@@ -331,7 +481,7 @@ function section(key: string, title: string, iconName: string, meta: string, bod
 function renderActivity(state: RelayState): string {
   const calls = state.agentCalls.slice(-30);
   const body = calls.length
-    ? `<ul class="log activity" id="activity-log" aria-live="polite">${calls.map((c) => `<li class="${c.ok ? "" : "err"}"><time class="mono">${hhmmss(c.at)}</time><span class="tool mono">${esc(c.tool)}</span><span class="ms mono">${c.durationMs} ms</span><span class="sum">${esc(c.summary)}</span></li>`).join("")}</ul>`
+    ? `<ul class="log activity" id="activity-log" aria-live="polite">${calls.map((c) => `<li class="${c.ok ? "" : "err"}${expandedCalls.has(c.id) ? " open" : ""}" data-call="${c.id}" title="Click to inspect input and output"><time class="mono">${hhmmss(c.at)}</time><span class="tool mono">${esc(c.tool)}</span><span class="ms mono">${c.durationMs} ms</span><span class="sum">${esc(c.summary)}</span>${expandedCalls.has(c.id) ? `<div class="io"><span class="lbl">Input</span><pre>${esc(JSON.stringify(c.input ?? {}, null, 1))}</pre><span class="lbl">Output</span><pre>${esc(c.output ?? "")}</pre></div>` : ""}</li>`).join("")}</ul>`
     : `<ul class="log activity" id="activity-log" aria-live="polite"><li class="empty"><span>No tool calls yet. Registered on this page:</span><span class="tools">${TOOL_NAMES.map((t) => `<code>${t}</code>`).join("")}</span></li></ul>`;
   return section("activity", "Agent activity", "bot", `${state.agentCalls.length} calls`, body);
 }
@@ -372,8 +522,11 @@ function renderEvents(state: RelayState): string {
 
 export function render(root: HTMLElement, ctx: UiContext): void {
   const state = ctx.store.get();
+  rerender = () => render(root, ctx);
+  collectToasts(state);
   const activeEl = document.activeElement as HTMLElement | null;
   const keepFocus = activeEl?.dataset?.action === "note" ? (activeEl as HTMLInputElement).value : null;
+  const paletteCaret = activeEl && "paletteInput" in (activeEl.dataset ?? {}) ? (activeEl as HTMLInputElement).selectionStart : null;
   root.innerHTML = `
     ${renderBar(ctx, state)}
     ${renderStatus(ctx, state)}
@@ -391,8 +544,20 @@ export function render(root: HTMLElement, ctx: UiContext): void {
     <footer>
       <span class="legend">${icon("cpu")}Runtime ${icon("bot")}Agent ${icon("user")}You ${icon("relay")}Relay</span>
       <span>Approve and Reject exist only as buttons. There is deliberately no WebMCP tool for them.</span>
+      <span class="kbd-hint"><kbd>Ctrl</kbd><kbd>K</kbd> commands · <kbd>?</kbd> shortcuts</span>
       <span><a href="https://github.com/Harshkamdar67/Airlock" target="_blank" rel="noopener">Airlock</a> · <a href="https://github.com/Harshkamdar67/airlock-relay" target="_blank" rel="noopener">Source</a></span>
-    </footer>`;
+    </footer>
+    ${renderToasts()}
+    ${renderPalette(ctx, state)}
+    ${renderShortcuts()}`;
+  if (paletteOpen) {
+    const input = root.querySelector<HTMLInputElement>("[data-palette-input]");
+    if (input) {
+      input.focus();
+      const pos = paletteCaret ?? input.value.length;
+      input.setSelectionRange(pos, pos);
+    }
+  }
   if (keepFocus !== null) {
     const note = root.querySelector<HTMLInputElement>('input[data-action="note"]');
     if (note) {
@@ -404,7 +569,81 @@ export function render(root: HTMLElement, ctx: UiContext): void {
 }
 
 export function bind(root: HTMLElement, ctx: UiContext): void {
+  const isTyping = () => {
+    const el = document.activeElement as HTMLElement | null;
+    return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+  };
+  const runPalette = (id: string) => {
+    const action = paletteActions(ctx, ctx.store.get()).find((a) => a.id === id);
+    paletteOpen = false;
+    paletteQuery = "";
+    paletteIndex = 0;
+    action?.run();
+    render(root, ctx);
+  };
+  document.addEventListener("keydown", (event) => {
+    const key = event.key;
+    if ((event.ctrlKey || event.metaKey) && key.toLowerCase() === "k") {
+      event.preventDefault();
+      paletteOpen = !paletteOpen;
+      shortcutsOpen = false;
+      paletteQuery = "";
+      paletteIndex = 0;
+      render(root, ctx);
+      return;
+    }
+    if (key === "Escape" && (paletteOpen || shortcutsOpen)) {
+      paletteOpen = false;
+      shortcutsOpen = false;
+      render(root, ctx);
+      return;
+    }
+    if (paletteOpen) {
+      const actions = paletteActions(ctx, ctx.store.get());
+      if (key === "ArrowDown") { event.preventDefault(); paletteIndex = Math.min(paletteIndex + 1, Math.max(0, actions.length - 1)); render(root, ctx); }
+      else if (key === "ArrowUp") { event.preventDefault(); paletteIndex = Math.max(paletteIndex - 1, 0); render(root, ctx); }
+      else if (key === "Enter") { event.preventDefault(); const a = actions[Math.min(paletteIndex, actions.length - 1)]; if (a) runPalette(a.id); }
+      return;
+    }
+    if (isTyping() || event.ctrlKey || event.metaKey || event.altKey) return;
+    const state = ctx.store.get();
+    const h = state.handoff;
+    const editable = !!h && (h.status === "pending_approval" || h.status === "approved");
+    if (key === "?") { shortcutsOpen = !shortcutsOpen; render(root, ctx); }
+    else if (key === "a" && editable && h?.status !== "approved") ctx.store.humanApprove();
+    else if (key === "r" && editable) ctx.store.humanReject();
+    else if (key === "c" && state.session.status === "blocked" && !h) { void navigator.clipboard?.writeText(SUGGESTED_PROMPT); pushToast("ok", "Prompt copied"); render(root, ctx); }
+    else if (key === "e") { if (collapsed.has("events")) collapsed.delete("events"); else collapsed.add("events"); render(root, ctx); }
+  });
+  root.addEventListener("input", (event) => {
+    const el = event.target as HTMLElement;
+    if (el.matches("[data-palette-input]")) {
+      paletteQuery = (el as HTMLInputElement).value;
+      paletteIndex = 0;
+      render(root, ctx);
+    }
+  });
   root.addEventListener("click", (event) => {
+    const overlay = (event.target as HTMLElement).closest<HTMLElement>("[data-overlay]");
+    if (overlay && event.target === overlay) {
+      paletteOpen = false;
+      shortcutsOpen = false;
+      render(root, ctx);
+      return;
+    }
+    const paletteItem = (event.target as HTMLElement).closest<HTMLElement>("[data-palette-action]");
+    if (paletteItem) {
+      runPalette(paletteItem.dataset.paletteAction as string);
+      return;
+    }
+    const callRow = (event.target as HTMLElement).closest<HTMLElement>("[data-call]");
+    if (callRow) {
+      const id = Number(callRow.dataset.call);
+      if (expandedCalls.has(id)) expandedCalls.delete(id);
+      else expandedCalls.add(id);
+      render(root, ctx);
+      return;
+    }
     const toggle = (event.target as HTMLElement).closest<HTMLElement>("[data-toggle]");
     if (toggle) {
       const key = toggle.dataset.toggle as string;

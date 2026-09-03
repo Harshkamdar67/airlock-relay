@@ -45,6 +45,8 @@ There is deliberately **no approve tool**. Approve and Reject exist only as butt
 4. In the proposal card, **change the target** to Claude Fable 5.1 (a metered route) and click **Approve**.
 5. Tell the agent "continue". It should re-read the proposal, notice your change and that you accepted metered usage, and execute. The session flips to running on Fable from checkpoint `cp_184`, and the Replay shows who did what.
 
+No ChatGPT quota? Chrome 149+ with the WebMCP flag plus Google's Model Context Tool Inspector extension is the other supported judging path: it lists the tools, invokes them by hand, and imitates an agent. The console also has a command palette (Ctrl+K), keyboard shortcuts (A approve, R reject, ? list), inspectable tool calls, and a one-click Markdown incident report.
+
 No WebMCP in your browser? Click **Run scripted walkthrough**. It calls the same tool entry point an agent would, pauses at the approval, and finishes after you approve.
 
 ### Second scenario: context overflow

@@ -36,6 +36,7 @@
         <a href="#generic">Any agent</a>
         <div class="h">Then</div>
         <a href="#open">Open the console</a>
+        <a href="#testing-chrome">Testing in Chrome</a>
         <a href="#notify">Notifications</a>
         <a href="#resume">Resume</a>
         <div class="h">Reference</div>
@@ -88,6 +89,10 @@ curl -X POST http://127.0.0.1:4783/relay/api/ingest -H "Content-Type: applicatio
         <h2 id="open">Open the console</h2>
         <p>Go to <code>http://127.0.0.1:4783/app/</code> in the ChatGPT desktop browser or in Chrome with WebMCP enabled. The top bar shows <b>Live</b> and <b>WebMCP · 7 tools</b>. Hand the page to the agent with the prompt in the banner, or write your own. The agent inspects and proposes; you approve.</p>
         <div class="callout"><span>🔒</span><div><b>The bridge trusts only what it recorded.</b> Your Approve click is registered on the bridge with a one-shot nonce. A page script or any other local process cannot make the bridge run the real switch without it, and the resume button is gated by a second nonce.</div></div>
+
+        <h3 id="testing-chrome">Testing without ChatGPT</h3>
+        <p>Chrome 149+ with <code>chrome://flags/#enable-webmcp-testing</code> is the other supported judging environment. Install Google's <b>Model Context Tool Inspector</b> extension from the Chrome Web Store, open the console, and the extension lists the seven tools, lets you invoke them with JSON by hand, and can imitate an agent conversation over them. The repository's <code>scripts/webmcp-smoke.mjs</code> does the same through Chrome's own <code>document.modelContext</code> API and is what the maintainers run against the live URL.</p>
+        <p>The console itself has a command palette (<kbd>Ctrl</kbd><kbd>K</kbd>), keyboard shortcuts (<kbd>A</kbd> approve, <kbd>R</kbd> reject, <kbd>?</kbd> list), inspectable tool calls (click any row in Agent activity to see its input and output), and a one-click Markdown incident report.</p>
 
         <h2 id="notify">Notifications</h2>
         <p>When the session becomes blocked, the bridge shows a desktop notification on Windows, macOS, and Linux. Add a webhook to get pushed anywhere:</p>

@@ -87,5 +87,6 @@ Ship the bridge as `airlock relay` inside Airlock itself, read live plan headroo
 5. Tell the agent "continue". It should call get_handoff, see your change and approval, and call execute_handoff. The session shows running on Claude Fable 5.1 from checkpoint cp_184, and the Replay lists runtime, agent, and human actions in order.
 6. Optional: click Reset demo and try rejecting the proposal, or edit the target after approving to see the token revoked (STALE_APPROVAL).
 6b. Switch the scenario selector to "Context overflow" and ask the agent the same thing. It should discover that GPT-5.6 Terra and Luna do not fit 412k tokens (prepare_handoff returns CONTEXT_EXCEEDS_ROUTE_WINDOW with routes that fit) and propose Grok 4.6 or Claude Opus 5.
-7. No WebMCP available: click "Run scripted walkthrough"; it pauses at approval and finishes after you approve.
+7. No WebMCP available: click "Run scripted walkthrough"; it pauses at approval and finishes after you approve. In Chrome, Google's Model Context Tool Inspector extension can invoke the tools and imitate an agent.
+7b. Console extras: Ctrl+K command palette, A / R keyboard approval, click any Agent activity row to inspect the tool's input and output, and "Copy incident report" for a Markdown summary of who did what.
 8. No login is required. Nothing is stored server-side.

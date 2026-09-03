@@ -323,7 +323,13 @@ export function invokeTool(store: RelayStore, name: string, input: unknown): Too
   }
   const ended = typeof performance !== "undefined" ? performance.now() : Date.now();
   const summary = spec.summarize(result, safeInput);
-  store.finishAgentCall(replayId, result.ok, summary, Math.round(ended - started));
+  let preview = "";
+  try {
+    preview = JSON.stringify(result);
+  } catch {
+    preview = "";
+  }
+  store.finishAgentCall(replayId, result.ok, summary, Math.round(ended - started), preview.length > 900 ? `${preview.slice(0, 900)}…` : preview);
   // A one-sentence, human-readable line first, so an agent reading the JSON
   // as text sees the outcome before the structured fields.
   if (result.ok) return { ok: true, message: spec.message ? spec.message(result, safeInput, store) : summary, ...(result as object) } as ToolResult<unknown>;

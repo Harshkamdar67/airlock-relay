@@ -132,6 +132,8 @@ export interface AgentCall {
   ok: boolean;
   summary: string;
   durationMs: number;
+  /** Compact JSON preview of the result, truncated. */
+  output?: string;
 }
 
 export type RelayMode = "demo" | "live";
