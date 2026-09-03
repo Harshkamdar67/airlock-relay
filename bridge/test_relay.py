@@ -178,7 +178,39 @@ class WebhookTests(unittest.TestCase):
         self.assertEqual(json.loads(body)["kind"], "relay.session_blocked")
 
 
+class ChainTests(unittest.TestCase):
+    TREE = """Handoff tree for hybrid-anthropic-root
+
+  composer  ->  luna  ->  sonnet   [yours]
+  fable     ->  sol  ->  opus  ->  grok   [yours]
+  opus      ->  sol  ->  grok  ->  fable   [default]
+
+  airlock handoff set sol opus grok   choose an order
+"""
+
+    def test_parse_tree(self) -> None:
+        chains = relay.parse_handoff_tree(self.TREE)
+        self.assertEqual(chains["fable"], ["sol", "opus", "grok"])
+        self.assertEqual(chains["composer"], ["luna", "sonnet"])
+        self.assertNotIn("airlock handoff set sol opus grok   choose an order", chains)
+
+    def test_planned_chain_puts_target_first_and_keeps_the_rest(self) -> None:
+        self.assertEqual(relay.planned_chain(["sol", "opus", "grok"], "opus"), ["opus", "sol", "grok"])
+        self.assertEqual(relay.planned_chain([], "opus"), ["opus"])
+        self.assertEqual(relay.planned_chain(["opus"], "opus"), ["opus"])
+
+
 class ActionTests(unittest.TestCase):
+    def test_windows_runs_airlock_through_bash(self) -> None:
+        original = relay.platform.system
+        relay.platform.system = lambda: "Windows"
+        try:
+            argv = relay.command_argv("airlock", ["handoff", "set", "fable", "opus"])
+        finally:
+            relay.platform.system = original
+        self.assertEqual(argv[1:], ["-lc", "airlock handoff set fable opus"])
+        self.assertEqual(relay.command_argv("claude", ["--version"]), ["claude", "--version"])
+
     def test_non_airlock_sources_record_without_a_command(self) -> None:
         result = relay.apply_handoff("claude-code", "claude-opus-5[1m]", "claude-sonnet-5[1m]")
         self.assertTrue(result["applied"])
@@ -190,14 +222,15 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(result["reason"], "unknown_route_name")
 
     def test_known_routes_build_the_airlock_command(self) -> None:
-        original = relay.shutil.which
-        relay.shutil.which = lambda _name: None
+        original = relay.command_available
+        relay.command_available = lambda _name: False
         try:
             result = relay.apply_handoff("airlock", "claude-opus-5[1m]", "claude-fable-5-1[1m]")
         finally:
-            relay.shutil.which = original
+            relay.command_available = original
         self.assertFalse(result["applied"])
         self.assertEqual(result["command"], "airlock handoff set opus fable")
+        self.assertEqual(result["chain_after"], ["fable"])
 
     def test_dry_run_resume_never_launches(self) -> None:
         result = relay.launch_resume("airlock hybrid fable --resume abc", os.getcwd(), dry_run=True)

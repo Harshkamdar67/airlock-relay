@@ -6,7 +6,7 @@
   "scripts": {
     "test": "vitest run",
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build", "build:bridge": "vite build && node scripts/sync-bridge-site.mjs", "check:bridge-site": "vite build && node scripts/sync-bridge-site.mjs --check",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },

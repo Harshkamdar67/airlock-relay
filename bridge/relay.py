@@ -41,9 +41,11 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DIST = ROOT / "dist"
+# A fresh `npm run build` lands in dist/; bridge/site is the committed copy so
+# the bridge runs with Python alone. Prefer the fresh build when it exists.
+DEFAULT_DIST = ROOT / "dist" if (ROOT / "dist" / "index.html").exists() else Path(__file__).resolve().parent / "site"
 
 # Short route names Airlock's commands accept, keyed by exact model id.
 AIRLOCK_ROUTE_NAMES = {
@@ -380,6 +382,58 @@ class Approvals:
 
 # ---- Actions ---------------------------------------------------------------
 
+def command_argv(command: str, args: list[str]) -> list[str]:
+    """Argv to run a CLI that may be a Bash script (Airlock on Windows runs under Git Bash)."""
+    if platform.system() == "Windows" and command == "airlock":
+        bash = shutil.which("bash") or "bash"
+        return [bash, "-lc", " ".join([command, *(shlex.quote(a) for a in args)])]
+    return [command, *args]
+
+
+def command_available(command: str) -> bool:
+    if shutil.which(command):
+        return True
+    if platform.system() == "Windows" and command == "airlock":
+        bash = shutil.which("bash")
+        if not bash:
+            return False
+        try:
+            return subprocess.run([bash, "-lc", "command -v airlock"], capture_output=True, text=True, timeout=15, check=False).returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+    return False
+
+
+def parse_handoff_tree(text: str) -> dict[str, list[str]]:
+    """Parse `airlock handoff` output into {route: [peers...]}."""
+    chains: dict[str, list[str]] = {}
+    for line in text.splitlines():
+        if "->" not in line:
+            continue
+        body = line.split("[", 1)[0]
+        parts = [p.strip() for p in body.split("->")]
+        if len(parts) < 2 or not parts[0]:
+            continue
+        chains[parts[0]] = [p for p in parts[1:] if p]
+    return chains
+
+
+def current_chain(route: str) -> list[str]:
+    """Best effort read of the declared chain for a route; empty when unknown."""
+    if not command_available("airlock"):
+        return []
+    try:
+        completed = subprocess.run(command_argv("airlock", ["handoff"]), capture_output=True, text=True, timeout=30, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    return parse_handoff_tree(completed.stdout + completed.stderr).get(route, [])
+
+
+def planned_chain(current: list[str], target: str) -> list[str]:
+    """The approved target goes first; the rest of the declared chain is kept."""
+    return [target] + [p for p in current if p != target]
+
+
 def apply_handoff(source: str, from_model: str, to_model: str) -> dict[str, Any]:
     """Persist the approved order. Airlock has a command for it; other sources only record."""
     if source != "airlock":
@@ -388,15 +442,16 @@ def apply_handoff(source: str, from_model: str, to_model: str) -> dict[str, Any]
     dst = route_name(to_model, AIRLOCK_ROUTE_NAMES)
     if not src or not dst:
         return {"applied": False, "reason": "unknown_route_name", "command": None}
-    command = ["airlock", "handoff", "set", src, dst]
-    if not shutil.which("airlock"):
-        return {"applied": False, "reason": "airlock_not_on_path", "command": " ".join(command)}
+    before = current_chain(src)
+    command = ["airlock", "handoff", "set", src, *planned_chain(before, dst)]
+    if not command_available("airlock"):
+        return {"applied": False, "reason": "airlock_not_on_path", "command": " ".join(command), "chain_before": before, "chain_after": planned_chain(before, dst)}
     try:
-        completed = subprocess.run(command, capture_output=True, text=True, timeout=20, check=False)
+        completed = subprocess.run(command_argv("airlock", command[1:]), capture_output=True, text=True, timeout=30, check=False)
     except (OSError, subprocess.TimeoutExpired) as error:
         return {"applied": False, "reason": str(error), "command": " ".join(command)}
     output = (completed.stdout + completed.stderr).strip().splitlines()
-    return {"applied": completed.returncode == 0, "exit_code": completed.returncode, "command": " ".join(command), "output": output[-6:]}
+    return {"applied": completed.returncode == 0, "exit_code": completed.returncode, "command": " ".join(command), "output": output[-6:], "chain_before": before, "chain_after": planned_chain(before, dst)}
 
 
 def terminal_launch_argv(command: str, workdir: str) -> list[str]:
@@ -423,7 +478,7 @@ def launch_resume(command: str, workdir: str, dry_run: bool = False) -> dict[str
     if dry_run:
         return {"launched": False, "dry_run": True, "command": command, "argv": argv}
     executable = command.split(" ", 1)[0]
-    if not shutil.which(executable):
+    if not command_available(executable):
         return {"launched": False, "reason": f"{executable}_not_on_path", "command": command}
     try:
         subprocess.Popen(argv, cwd=workdir, close_fds=True)  # noqa: S603 command built from validated route names

@@ -55,6 +55,42 @@ Switch the scenario selector to **Context overflow**. A GPT-5.6 Sol session has 
 
 Every route also carries the provider's plan headroom (used percent of the 5-hour window and when it resets), the same numbers Airlock reads from Claude Code's status line, so the agent can avoid proposing a route that is about to hit its own limit.
 
+## Connect your own agent in two minutes
+
+The page is the same in every mode. Only where the facts come from changes. You need Python 3.10+ and a clone of this repo; the built page ships in `bridge/site`, so Node is optional.
+
+**Airlock session** (inside the session, so the router URL is in the environment):
+
+```bash
+python bridge/relay.py --task "what the session is doing" --open
+```
+
+**Plain Claude Code** (no Airlock):
+
+```bash
+python bridge/relay.py --source claude-code --workdir ~/work/app --model claude-sonnet-5[1m] --open
+```
+
+Then copy `bridge/hooks.example.json` into `~/work/app/.claude/settings.local.json`, replacing `RELAY_HOOK` with the absolute path to `bridge/claude_code_hook.py`, and start Claude Code in that directory. Every hook posts to the bridge and exits within a second; Claude Code never waits on it.
+
+**Any other agent:** start with `--source generic` and POST `state` and `event` documents to `http://127.0.0.1:4783/relay/api/ingest` as described in [docs/ingest-contract.md](docs/ingest-contract.md).
+
+Then open `http://127.0.0.1:4783/` in the ChatGPT desktop browser or in Chrome with WebMCP enabled, and hand the page to the agent. Add `--notify https://ntfy.sh/your-topic` (or a Slack or Discord webhook) to get pushed when the session blocks; a desktop notification shows by default.
+
+Windows note: Airlock's launcher is a Bash script, so the bridge runs Airlock commands through Git Bash, which Airlock already requires.
+
+### What was verified for real, not only in unit tests
+
+| Check | How |
+| --- | --- |
+| Tools discovered and executed through the browser's own WebMCP API | `scripts/webmcp-smoke.mjs` on the deployed URL, Chrome 152 with `--enable-features=WebMCPTesting` |
+| Live Airlock mode on a real router | Bridge started inside a real Airlock session; page showed the real profile, model, events, and this session's Claude Code id |
+| Real `airlock handoff set` through the bridge | Executed handoff ran `airlock handoff set fable opus sol grok` on a real install, verified with `airlock handoff`, then restored |
+| Approval gate on the bridge | Forged `POST /relay/api/handoff` and `POST /relay/api/resume` refused; genuine approve then execute accepted |
+| Claude Code hooks with the real `claude` CLI | `scripts/hook-e2e.sh --with-real-call`: SessionStart, Stop, and SessionEnd reached the bridge with a real session id |
+| Block detection for Claude Code | Verified with the documented `StopFailure` hook payload through `bridge/claude_code_hook.py`; a live provider failure was not reproducible on demand in print mode |
+| Resume command and terminal launch | Command built from the discovered session id; terminal launch exercised in dry-run so no second session was started |
+
 ## Works with
 
 | Runtime | How Relay gets its facts | Block signal | Resume |
