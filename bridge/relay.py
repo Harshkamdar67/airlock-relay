@@ -460,6 +460,10 @@ def terminal_launch_argv(command: str, workdir: str) -> list[str]:
     if system == "Windows":
         bash = shutil.which("bash") or "bash"
         script = f"cd {shlex.quote(workdir)} && {command}; echo; echo '[relay] session ended, press Enter to close'; read -r _"
+        mintty = Path(bash).resolve().parent / "mintty.exe" if bash else None
+        if mintty and mintty.exists():
+            # Git Bash's own terminal: a real window we can place and title.
+            return [str(mintty), "-t", "Relay resume", "-p", "60,60", "-s", "150,40", "-o", "Transparency=off", "--", "/usr/bin/bash", "-lc", script]
         return ["cmd", "/c", "start", "Relay resume", bash, "-lc", script]
     if system == "Darwin":
         script = f"cd {shlex.quote(workdir)} && {command}"
