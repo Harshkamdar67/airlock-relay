@@ -24,7 +24,7 @@ const ctx: UiContext = {
     const state = store.get();
     const h = state.handoff;
     if (state.mode !== "live" || !h || h.status !== "executed") return;
-    void postJson("./relay/api/resume", { handoff_id: h.id, nonce: resumeNonces.get(h.id) ?? "" })
+    void postJson("/relay/api/resume", { handoff_id: h.id, nonce: resumeNonces.get(h.id) ?? "" })
       .then((body) => {
         const launched = body.launched === true;
         const command = typeof body.command === "string" ? body.command : state.bridge?.resumeCommand ?? "";
@@ -83,13 +83,13 @@ store.subscribe((state) => {
   const key = `${h.id}:${h.revision}`;
   if (h.status === "approved" && !postedApprovals.has(key)) {
     postedApprovals.add(key);
-    void postJson("./relay/api/approve", { handoff_id: h.id, revision: h.revision, from: h.from, target: h.target })
+    void postJson("/relay/api/approve", { handoff_id: h.id, revision: h.revision, from: h.from, target: h.target })
       .then((body) => { if (typeof body.nonce === "string") bridgeNonces.set(key, body.nonce); })
       .catch(() => undefined);
   }
   if (h.status === "executed" && !postedHandoffs.has(h.id)) {
     postedHandoffs.add(h.id);
-    void postJson("./relay/api/handoff", { handoff_id: h.id, revision: h.revision, from: h.from, target: h.target, nonce: bridgeNonces.get(key) ?? "" })
+    void postJson("/relay/api/handoff", { handoff_id: h.id, revision: h.revision, from: h.from, target: h.target, nonce: bridgeNonces.get(key) ?? "" })
       .then((body) => {
         const applied = body.applied === true;
         const command = typeof body.command === "string" ? body.command : "";

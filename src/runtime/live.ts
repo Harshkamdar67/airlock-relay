@@ -21,7 +21,7 @@ export interface BridgeState {
   diagnostics: AirlockDiagnostics;
 }
 
-const STATE_URL = "./relay/api/state";
+const STATE_URL = "/relay/api/state";
 
 async function fetchBridge(): Promise<BridgeState | null> {
   try {

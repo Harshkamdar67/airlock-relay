@@ -12,7 +12,7 @@ A WebMCP control room where you and a browser agent supervise a stuck coding-age
 
 ## Live URL
 
-https://harshkamdar67.github.io/airlock-relay/
+https://harshkamdar67.github.io/airlock-relay/app/ (the console; overview at https://harshkamdar67.github.io/airlock-relay/ and setup at /connect/)
 
 ## Repository
 
@@ -80,7 +80,7 @@ Ship the bridge as `airlock relay` inside Airlock itself, read live plan headroo
 
 ## Testing instructions (Devpost field)
 
-1. Open https://harshkamdar67.github.io/airlock-relay/ in the ChatGPT desktop app's browser, or in Chrome 149+ with chrome://flags/#enable-webmcp-testing enabled and relaunched. The top bar should read "WebMCP: 7 tools registered".
+1. Open https://harshkamdar67.github.io/airlock-relay/app/ in the ChatGPT desktop app's browser, or in Chrome 149+ with chrome://flags/#enable-webmcp-testing enabled and relaunched. The top bar should read "WebMCP: 7 tools registered".
 2. Ask the agent: "My Airlock coding session looks blocked. Inspect what happened, then get it running again on a route that is ready and does not spend metered usage. Do not change the active model until I approve the handoff in this page."
 3. The agent should call get_session, get_events, get_routes, then prepare_handoff to a ready non-metered route (GPT-5.6 Sol). If it calls execute_handoff early, the page refuses with APPROVAL_REQUIRED.
 4. In the Handoff proposal card, change "To" to Claude Fable 5.1 (metered) and click Approve.

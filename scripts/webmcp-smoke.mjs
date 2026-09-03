@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const url = process.argv[2] ?? "http://127.0.0.1:4173/";
+const url = process.argv[2] ?? "http://127.0.0.1:4173/app/";
 const chromePath =
   process.argv[3] ??
   process.env.CHROME_PATH ??

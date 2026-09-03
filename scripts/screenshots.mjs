@@ -4,7 +4,7 @@
 import puppeteer from "puppeteer-core";
 
 const chrome = process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe";
-const demo = process.argv[2] ?? "http://127.0.0.1:4173/";
+const demo = process.argv[2] ?? "http://127.0.0.1:4173/app/";
 const b = await puppeteer.launch({ executablePath: chrome, headless: "new", args: ["--enable-features=WebMCPTesting,WebMCP"] });
 const pg = await b.newPage();
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -23,9 +23,14 @@ await pg.screenshot({ path: "docs/screenshot-narrow.png" });
 await pg.setViewport({ width: 1200, height: 630 }); await wait(300);
 await pg.screenshot({ path: "public/og.png" });
 await pg.setViewport({ width: 1440, height: 900 });
+await pg.goto(demo.replace(/app\/?$/, ""), { waitUntil: "networkidle0" }); await wait(1200);
+await pg.screenshot({ path: "docs/screenshot-landing.png" });
+await pg.goto(demo.replace(/app\/?$/, "connect/"), { waitUntil: "networkidle0" }); await wait(800);
+await pg.screenshot({ path: "docs/screenshot-connect.png" });
+await pg.setViewport({ width: 1440, height: 900 });
 
 if (await reachable("http://127.0.0.1:4783/relay/api/state")) {
-  await pg.goto("http://127.0.0.1:4783/", { waitUntil: "networkidle0" }); await wait(1500);
+  await pg.goto("http://127.0.0.1:4783/app/", { waitUntil: "networkidle0" }); await wait(1500);
   await run("get_session");
   const routes = await run("get_routes");
   const pick = routes.routes.find((r) => r.status === "ready" && !r.is_active && r.fits_session_context && !r.metered) ?? routes.routes.find((r) => r.status === "ready" && !r.is_active && r.fits_session_context);
@@ -39,7 +44,7 @@ if (await reachable("http://127.0.0.1:4783/relay/api/state")) {
   console.log("live airlock shot ok");
 }
 if (await reachable("http://127.0.0.1:4784/relay/api/state")) {
-  await pg.goto("http://127.0.0.1:4784/", { waitUntil: "networkidle0" }); await wait(1500);
+  await pg.goto("http://127.0.0.1:4784/app/", { waitUntil: "networkidle0" }); await wait(1500);
   await run("get_session"); await run("get_routes"); await wait(400);
   await pg.screenshot({ path: "docs/screenshot-claude-code.png" });
   console.log("live claude-code shot ok");

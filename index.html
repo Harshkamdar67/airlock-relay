@@ -4,25 +4,115 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
-    <meta name="description" content="Airlock Relay: a WebMCP control room where a human and a browser agent supervise a live coding session and hand it between model providers together." />
-    <title>Airlock Relay: a WebMCP control room for humans and agents</title>
+    <meta name="description" content="Airlock Relay is a WebMCP control room where you and a browser agent supervise a stuck coding-agent session together and hand it to another model without losing the work." />
+    <title>Airlock Relay · A WebMCP control room for coding-agent sessions</title>
     <meta property="og:title" content="Airlock Relay" />
-    <meta property="og:description" content="A WebMCP control room where a human and a browser agent supervise a stuck coding-agent session together and hand it to another model without losing the work." />
+    <meta property="og:description" content="Your coding agent got stuck at 2 AM. A browser agent and you fix it together, through WebMCP." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://harshkamdar67.github.io/airlock-relay/" />
     <meta property="og:image" content="https://harshkamdar67.github.io/airlock-relay/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23f6f4ef' stroke='%230f766e' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%230f766e'/%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='28' height='28' rx='7' fill='%237c86ff'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%230b0b0e'/%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-    />
-    <link rel="stylesheet" href="./src/ui/styles.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="./src/site.css" />
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="./src/main.ts"></script>
+    <nav class="nav">
+      <div class="wrap">
+        <a class="brand" href="./"><span class="mark" aria-hidden="true"></span>Airlock Relay</a>
+        <div class="nav-links">
+          <a class="active" href="./">Overview</a>
+          <a href="./app/">Console</a>
+          <a href="./connect/">Connect your agent</a>
+          <a href="https://github.com/Harshkamdar67/airlock-relay" target="_blank" rel="noopener">GitHub</a>
+        </div>
+        <span class="spacer"></span>
+        <a class="btn primary" href="./app/">Open the console</a>
+      </div>
+    </nav>
+
+    <main class="wrap">
+      <section class="hero">
+        <div>
+          <span class="eyebrow">WebMCP control room</span>
+          <h1>Your coding agent got stuck at 2 AM. <em>A browser agent and you fix it together.</em></h1>
+          <p class="sub">Airlock Relay turns a blocked coding-agent session into a page that two parties operate at once. The agent reads the runtime through seven typed WebMCP tools and proposes a handoff to another model. You edit the proposal, approve it with one click, and the agent resumes the work from its checkpoint. Nothing is inferred from the DOM and nothing switches without you.</p>
+          <div class="cta">
+            <a class="btn primary lg" href="./app/">Open the console</a>
+            <a class="btn lg" href="./connect/">Connect your agent</a>
+          </div>
+          <p class="hint">Works in the ChatGPT desktop browser and in Chrome 149+ with WebMCP enabled. The console runs a demo seeded from a real Airlock router export; connect the local bridge for your own session.</p>
+        </div>
+        <div class="frame"><div class="chrome"><i></i><i></i><i></i><span>harshkamdar67.github.io/airlock-relay/app</span></div><img src="./shots/blocked.png" alt="The Relay console showing a blocked session, a rate limit on Anthropic, and the prompt to hand to a browser agent" width="1440" height="900" loading="eager" /></div>
+      </section>
+
+      <div class="facts">
+        <div><b>7 typed tools</b><span>Session, events, routes, proposal, execution, and replay exposed through WebMCP with schemas and annotations.</span></div>
+        <div><b>Human approval, enforced</b><span>No approve tool exists. Approval issues a token bound to the proposal revision, and any edit revokes it.</span></div>
+        <div><b>Real runtimes</b><span>Airlock sessions today, plain Claude Code through hooks, and any agent through a small ingest contract.</span></div>
+      </div>
+
+      <section class="block" id="how">
+        <h2>How a handoff happens</h2>
+        <p class="lead">Both parties act on one shared object. The page records who did what, in order, and the agent can read that timeline back.</p>
+        <div class="steps">
+          <div><span class="n">1</span><b>The agent reads</b><p>get_session, get_events, and get_routes tell it what broke, what is on cooldown, which routes fit the context, and what spends metered usage.</p><span class="who agent">Agent</span></div>
+          <div><span class="n">2</span><b>The agent proposes</b><p>prepare_handoff writes a proposal into the page. Cooldown routes, routes without room, and metered routes it was not allowed are refused with alternatives.</p><span class="who agent">Agent</span></div>
+          <div><span class="n">3</span><b>You decide</b><p>Change the target, add a note, then approve or reject. Approval is bound to the exact revision you saw.</p><span class="who human">You</span></div>
+          <div><span class="n">4</span><b>The agent executes</b><p>execute_handoff resumes the session on the approved route from its checkpoint, or is refused if you edited after approving. Retries are safe.</p><span class="who agent">Agent</span></div>
+        </div>
+      </section>
+
+      <section class="block" id="screens">
+        <h2>The console</h2>
+        <p class="lead">Dark-first, one accent, four actor tints. The status and the four numbers that decide the next action sit top-left; everything else is progressive disclosure.</p>
+        <div class="gallery">
+          <figure><div class="frame"><img src="./shots/after-handoff.png" alt="After a handoff: the proposal edited by the human, approved, executed, with the timeline and agent activity" loading="lazy" /></div><figcaption><b>After the handoff.</b> The human changed the target to a metered route, approved, and the agent executed with the new token.</figcaption></figure>
+          <figure><div class="frame"><img src="./shots/overflow.png" alt="Context overflow scenario with routes marked as fitting or not" loading="lazy" /></div><figcaption><b>Context overflow.</b> A 412k-token conversation needs a route with room; the tools refuse routes that do not fit.</figcaption></figure>
+          <figure><div class="frame"><img src="./shots/live.png" alt="Live mode against a real Airlock router with the resume command ready" loading="lazy" /></div><figcaption><b>Live against Airlock.</b> Real router facts, a real session id, and the command that resumes the conversation on the approved model.</figcaption></figure>
+          <figure><div class="frame"><img src="./shots/claude-code.png" alt="A plain Claude Code session fed by hooks, blocked by a rate limit" loading="lazy" /></div><figcaption><b>Plain Claude Code.</b> Hooks post session events into the bridge; no Airlock required.</figcaption></figure>
+        </div>
+      </section>
+
+      <section class="block" id="tools">
+        <h2>What the agent can do</h2>
+        <p class="lead">Every tool has a JSON Schema, a use-case description, and annotations. Reads carry readOnlyHint; the event log carries untrustedContentHint. Results are bounded and errors are structured so the agent can self-correct.</p>
+        <table>
+          <thead><tr><th>Tool</th><th>Kind</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>get_session</code></td><td><span class="kind">read</span></td><td>Task, active model and provider, blocked or running and why, context against the window, checkpoint.</td></tr>
+            <tr><td><code>get_events</code></td><td><span class="kind">read</span></td><td>The router's event log: requests, 429s, cooldowns, failover attempts, handoff activity.</td></tr>
+            <tr><td><code>get_routes</code></td><td><span class="kind">read</span></td><td>Every route with provider, tier, context window, fit, plan headroom, readiness, and metered flag.</td></tr>
+            <tr><td><code>prepare_handoff</code></td><td><span class="kind write">write</span></td><td>Creates a proposal. Refuses cooldown routes, routes without room, and metered routes unless allowed. Never switches anything.</td></tr>
+            <tr><td><code>get_handoff</code></td><td><span class="kind">read</span></td><td>Status, revision, target, every change the human made, and the approval token once approved.</td></tr>
+            <tr><td><code>execute_handoff</code></td><td><span class="kind write">write</span></td><td>Resumes on the approved route. Fails before approval and when the proposal changed after approval. Idempotent.</td></tr>
+            <tr><td><code>get_replay</code></td><td><span class="kind">read</span></td><td>The attributed timeline: runtime, agent, and human actions in order.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="block" id="works-with">
+        <h2>Works with</h2>
+        <p class="lead">The page, the tools, the approval model, and the replay are identical for every runtime. Only the adapter changes.</p>
+        <table>
+          <thead><tr><th>Runtime</th><th>Where facts come from</th><th>Block signal</th><th>Resume</th></tr></thead>
+          <tbody>
+            <tr><td><b>Airlock</b></td><td>The router's loopback diagnostics and model list, polled by the bridge.</td><td>Router cooldown lists and chain-exhausted events.</td><td><code>airlock hybrid &lt;route&gt; --resume &lt;id&gt;</code></td></tr>
+            <tr><td><b>Plain Claude Code</b></td><td>Claude Code hooks post to the bridge.</td><td>The StopFailure hook.</td><td><code>claude --resume &lt;id&gt; --model &lt;alias&gt;</code></td></tr>
+            <tr><td><b>Any agent</b></td><td>Your runtime posts small JSON state and events.</td><td>An event with a failure set.</td><td>Whatever your runtime supports.</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:18px"><a class="btn" href="./connect/">Set it up in two minutes →</a></p>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Airlock Relay · built for <a href="https://webmcp.devpost.com/" target="_blank" rel="noopener">The WebMCP Challenge</a> on top of <a href="https://github.com/Harshkamdar67/Airlock" target="_blank" rel="noopener">Airlock</a>.</span>
+        <span><a href="./app/">Console</a> · <a href="./connect/">Connect</a> · <a href="https://github.com/Harshkamdar67/airlock-relay" target="_blank" rel="noopener">Source, MIT</a></span>
+      </div>
+    </footer>
   </body>
 </html>

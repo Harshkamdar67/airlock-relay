@@ -722,13 +722,13 @@ def main(argv: list[str] | None = None) -> int:
             return 1
     else:
         ingested = IngestedRuntime(source, args.model, args.provider, [m.strip() for m in args.models.split(",") if m.strip()])
-    page_url = f"http://127.0.0.1:{args.port}/"
+    page_url = f"http://127.0.0.1:{args.port}/app/"
     context = BridgeContext(
         source=source, task=args.task, workdir=str(Path(args.workdir).expanduser()), page_url=page_url,
         client=client, ingested=ingested, notify_url=args.notify, desktop_notify=not args.no_desktop_notify, dry_run=args.dry_run,
     )
     server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(context, dist))
-    print(f"relay: control room at {page_url}  (source {source}, {context.router_url})")
+    print(f"relay: console at {page_url}  (source {source}, {context.router_url})")
     print(f"relay: session id {context.session_id or 'not found yet'}; workdir {context.workdir}")
     if source != "airlock":
         print(f"relay: POST events to {page_url}relay/api/ingest (see bridge/claude_code_hook.py)")

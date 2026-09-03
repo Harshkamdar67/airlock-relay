@@ -9,8 +9,8 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-const demoUrl = process.argv[2] ?? "http://127.0.0.1:4173/";
-const liveUrl = process.argv[3] ?? "http://127.0.0.1:4783/";
+const demoUrl = process.argv[2] ?? "http://127.0.0.1:4173/app/";
+const liveUrl = process.argv[3] ?? "http://127.0.0.1:4783/app/";
 const chromePath = process.env.CHROME_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const ffmpeg = process.env.FFMPEG_PATH ?? (spawnSync("bash", ["-lc", "command -v ffmpeg"], { encoding: "utf8" }).stdout || "ffmpeg").trim();
 const videoDir = path.resolve("video");
@@ -257,7 +257,7 @@ await ring(null);
 await waitUntil(at("outro", 0.15));
 await page.evaluate(() => {
   const end = document.createElement("div"); end.id = "rc-end";
-  end.innerHTML = `<h1><i></i>Airlock Relay</h1><p>A WebMCP control room for humans and agents supervising coding sessions together</p><code>harshkamdar67.github.io/airlock-relay</code><p>github.com/Harshkamdar67/airlock-relay</p>`;
+  end.innerHTML = `<h1><i></i>Airlock Relay</h1><p>A WebMCP control room for humans and agents supervising coding sessions together</p><code>harshkamdar67.github.io/airlock-relay/app</code><p>github.com/Harshkamdar67/airlock-relay</p>`;
   document.body.appendChild(end); requestAnimationFrame(() => end.classList.add("show"));
 });
 await waitUntil(total);

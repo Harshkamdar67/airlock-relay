@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="Connect Airlock Relay to your own agent session: Airlock, plain Claude Code through hooks, or any runtime through the ingest contract." />
+    <title>Connect your agent · Airlock Relay</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='28' height='28' rx='7' fill='%237c86ff'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%230b0b0e'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="../src/site.css" />
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="wrap">
+        <a class="brand" href="../"><span class="mark" aria-hidden="true"></span>Airlock Relay</a>
+        <div class="nav-links">
+          <a href="../">Overview</a>
+          <a href="../app/">Console</a>
+          <a class="active" href="./">Connect your agent</a>
+          <a href="https://github.com/Harshkamdar67/airlock-relay" target="_blank" rel="noopener">GitHub</a>
+        </div>
+        <span class="spacer"></span>
+        <a class="btn primary" href="../app/">Open the console</a>
+      </div>
+    </nav>
+
+    <main class="wrap two docs">
+      <aside class="toc">
+        <div class="h">Setup</div>
+        <a href="#requirements">Requirements</a>
+        <a href="#airlock">Airlock session</a>
+        <a href="#claude-code">Plain Claude Code</a>
+        <a href="#generic">Any agent</a>
+        <div class="h">Then</div>
+        <a href="#open">Open the console</a>
+        <a href="#notify">Notifications</a>
+        <a href="#resume">Resume</a>
+        <div class="h">Reference</div>
+        <a href="#flags">Bridge flags</a>
+        <a href="#ingest">Ingest contract</a>
+        <a href="#verified">What was verified</a>
+        <a href="#limits">Limits</a>
+      </aside>
+
+      <div>
+        <h1 style="font-size:30px;font-weight:650;letter-spacing:-0.02em">Connect your agent</h1>
+        <p style="font-size:16px">The hosted console is a demo. To supervise your own session, run the local bridge. It serves the same page on your machine and feeds it real facts, records your approvals, and resumes the conversation on the model you approve.</p>
+
+        <h2 id="requirements">Requirements</h2>
+        <ul>
+          <li>Python 3.10 or newer. The bridge is a single standard-library file, and the built page ships next to it, so Node is optional.</li>
+          <li>A clone of <a href="https://github.com/Harshkamdar67/airlock-relay">github.com/Harshkamdar67/airlock-relay</a>.</li>
+          <li>A WebMCP-capable browser for the agent side: the ChatGPT desktop app's browser, or Chrome 149+ with <code>chrome://flags/#enable-webmcp-testing</code> enabled.</li>
+          <li>On Windows, Git Bash, which Airlock already requires. The bridge runs Airlock's launcher through it.</li>
+        </ul>
+
+        <h2 id="airlock">Airlock session</h2>
+        <p>Run the bridge from inside the Airlock session you want to supervise, in the project directory. It reads the router URL from the session environment and finds the Claude Code session id from the transcript directory for that folder.</p>
+<pre><span class="c"># inside an Airlock session, in your project</span>
+python bridge/relay.py --task "what the session is doing" --open
+
+<span class="c"># or from anywhere, naming the router and the working directory</span>
+python bridge/relay.py --router-url http://127.0.0.1:PORT --workdir ~/work/app --open</pre>
+        <p>What you get: the real profile, active model, cooldowns, every request and failover event, context size, and this session's id. When the agent's handoff is approved and executed, the bridge runs <code>airlock handoff set &lt;from&gt; &lt;target&gt; …</code> with the approved target first and your existing chain kept, and prepares <code>airlock hybrid &lt;route&gt; --resume &lt;session-id&gt;</code>.</p>
+
+        <h2 id="claude-code">Plain Claude Code</h2>
+        <p>No Airlock needed. Claude Code's hooks post session events to the bridge; StopFailure is the block signal.</p>
+<pre>python bridge/relay.py --source claude-code --workdir ~/work/app --model claude-sonnet-5[1m] --open</pre>
+        <ol>
+          <li>Copy <code>bridge/hooks.example.json</code> into <code>~/work/app/.claude/settings.local.json</code>.</li>
+          <li>Replace every <code>RELAY_HOOK</code> with the absolute path to <code>bridge/claude_code_hook.py</code>.</li>
+          <li>Start Claude Code in that directory. Each hook posts to the bridge and exits within a second; Claude Code never waits on it.</li>
+        </ol>
+        <p>Resume becomes <code>claude --resume &lt;session-id&gt; --model &lt;alias&gt;</code>. Honest scope: switching Claude models helps with overloaded, server error, and model errors. It does not help with a plan-wide rate limit, because the plan is the same. Cross-provider continuation needs Airlock.</p>
+
+        <h2 id="generic">Any agent</h2>
+        <p>Start with <code>--source generic</code> and POST small JSON documents to the bridge. See the <a href="#ingest">ingest contract</a> below.</p>
+<pre>python bridge/relay.py --source generic --model gpt-5.6-sol --provider openai --models gpt-5.6-sol,gpt-5.6-terra --open
+
+curl -X POST http://127.0.0.1:4783/relay/api/ingest -H "Content-Type: application/json" \
+  -d '{"state":{"session_id":"abc-123","cwd":"/home/me/app","model":"gpt-5.6-sol","provider":"openai"}}'
+curl -X POST http://127.0.0.1:4783/relay/api/ingest -H "Content-Type: application/json" \
+  -d '{"event":{"kind":"failure","failure":"rate_limit","summary":"429 after 3 retries"}}'</pre>
+
+        <h2 id="open">Open the console</h2>
+        <p>Go to <code>http://127.0.0.1:4783/app/</code> in the ChatGPT desktop browser or in Chrome with WebMCP enabled. The top bar shows <b>Live</b> and <b>WebMCP · 7 tools</b>. Hand the page to the agent with the prompt in the banner, or write your own. The agent inspects and proposes; you approve.</p>
+        <div class="callout"><span>🔒</span><div><b>The bridge trusts only what it recorded.</b> Your Approve click is registered on the bridge with a one-shot nonce. A page script or any other local process cannot make the bridge run the real switch without it, and the resume button is gated by a second nonce.</div></div>
+
+        <h2 id="notify">Notifications</h2>
+        <p>When the session becomes blocked, the bridge shows a desktop notification on Windows, macOS, and Linux. Add a webhook to get pushed anywhere:</p>
+<pre>python bridge/relay.py --notify https://ntfy.sh/your-topic            <span class="c"># phone push via ntfy</span>
+python bridge/relay.py --notify https://hooks.slack.com/services/…     <span class="c"># Slack incoming webhook</span>
+python bridge/relay.py --notify https://discord.com/api/webhooks/…     <span class="c"># Discord webhook</span>
+python bridge/relay.py --notify https://example.com/hook                <span class="c"># any JSON receiver</span></pre>
+
+        <h2 id="resume">Resume</h2>
+        <p>After an executed handoff the console shows a <b>Resume in a new terminal</b> button and the exact command. Exit the blocked session first, then click. The bridge opens a terminal in the working directory and runs the launcher, which continues the same conversation on the approved model. The bridge never kills or restarts a session on its own.</p>
+
+        <h2 id="flags">Bridge flags</h2>
+        <table>
+          <thead><tr><th>Flag</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>--source airlock|claude-code|generic</code></td><td>Where facts come from. Defaults to airlock when a router URL is present, else claude-code.</td></tr>
+            <tr><td><code>--router-url URL</code></td><td>Airlock router. Defaults to <code>AIRLOCK_SESSION_ROUTER_URL</code>.</td></tr>
+            <tr><td><code>--workdir PATH</code></td><td>The session's directory. Used to find the session id and to resume there.</td></tr>
+            <tr><td><code>--task TEXT</code></td><td>Label shown in the console.</td></tr>
+            <tr><td><code>--model ID</code>, <code>--provider NAME</code>, <code>--models A,B</code></td><td>Initial facts for claude-code and generic sources until events say otherwise.</td></tr>
+            <tr><td><code>--notify URL</code></td><td>Webhook to POST when the session blocks.</td></tr>
+            <tr><td><code>--no-desktop-notify</code></td><td>Skip the desktop notification.</td></tr>
+            <tr><td><code>--open</code></td><td>Open the console in the default browser.</td></tr>
+            <tr><td><code>--dry-run</code></td><td>Prepare the resume command but never launch a terminal.</td></tr>
+            <tr><td><code>--port N</code></td><td>Loopback port, default 4783.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="ingest">Ingest contract</h2>
+        <p>POST to <code>/relay/api/ingest</code>. Send a <code>state</code> document at start and whenever it changes, and one <code>event</code> per thing that happened.</p>
+<pre>{ "state": { "session_id": "abc-123", "cwd": "/home/me/app", "model": "gpt-5.6-sol",
+             "provider": "openai", "models": ["gpt-5.6-sol", "gpt-5.6-terra"] } }
+
+{ "event": { "kind": "failure", "failure": "rate_limit", "summary": "429 after 3 retries" } }
+{ "event": { "kind": "turn_completed", "summary": "Edited 4 files, tests pass" } }
+{ "event": { "kind": "PostToolUse", "tool_name": "Bash" } }</pre>
+        <table>
+          <thead><tr><th>failure</th><th>Effect</th></tr></thead>
+          <tbody>
+            <tr><td><code>rate_limit</code>, <code>billing_error</code>, <code>account_on_hold</code>, <code>authentication_failed</code></td><td>The whole provider is marked on cooldown for 15 minutes.</td></tr>
+            <tr><td><code>overloaded</code>, <code>server_error</code>, <code>model_not_found</code>, <code>max_output_tokens</code></td><td>Only the active model is marked on cooldown.</td></tr>
+          </tbody>
+        </table>
+        <p>Claude Code's hook event names are understood as kinds directly. Everything is loopback only.</p>
+
+        <h2 id="verified">What was verified for real</h2>
+        <table>
+          <thead><tr><th>Check</th><th>How</th></tr></thead>
+          <tbody>
+            <tr><td>Tools discovered and executed through the browser's own WebMCP API</td><td>Chrome smoke test on the deployed URL, Chrome 152 with the WebMCP flag.</td></tr>
+            <tr><td>Live Airlock mode on a real router</td><td>Bridge started inside a real Airlock session; page showed the real profile, model, events, and the session's Claude Code id.</td></tr>
+            <tr><td>Real <code>airlock handoff set</code> through the bridge</td><td>Executed handoff ran the command on a real install with the declared chain kept; verified and restored.</td></tr>
+            <tr><td>Approval gate on the bridge</td><td>Forged handoff and resume requests refused; genuine approve then execute accepted.</td></tr>
+            <tr><td>Claude Code hooks with the real CLI</td><td>SessionStart, Stop, and SessionEnd reached the bridge with a real session id.</td></tr>
+            <tr><td>Resume, for real</td><td>On a scratch session, the Resume button opened a terminal running <code>airlock hybrid sonnet --resume &lt;id&gt;</code>; a Claude Code process launched by Airlock with that id was observed, then stopped.</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="limits">Limits</h2>
+        <ul>
+          <li>Live mode shows no plan-headroom numbers, because the router does not expose them.</li>
+          <li>Routes outside the built-in catalog, such as OpenRouter and open-model slugs, are not listed.</li>
+          <li>The bridge is loopback only and trusts local processes; it is a personal tool, not a shared service.</li>
+          <li>Block detection for plain Claude Code was verified with the documented StopFailure payload, not with a live provider failure.</li>
+          <li>macOS and Linux command paths follow standard patterns but were not executed during this build.</li>
+        </ul>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Airlock Relay · built on <a href="https://github.com/Harshkamdar67/Airlock" target="_blank" rel="noopener">Airlock</a>.</span>
+        <span><a href="../">Overview</a> · <a href="../app/">Console</a> · <a href="https://github.com/Harshkamdar67/airlock-relay" target="_blank" rel="noopener">Source, MIT</a></span>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -13,7 +13,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const run = (n, i = {}) => pg.evaluate(async ([n, i]) => { const mc = document.modelContext; const t = (await mc.getTools()).find((x) => x.name === n); return JSON.parse(await mc.executeTool(t, JSON.stringify(i))); }, [n, i]);
 const click = (sel) => pg.evaluate((s) => { const el = document.querySelector(s); if (!el) throw new Error("missing " + s); el.click(); }, sel);
 
-await pg.goto("http://127.0.0.1:" + port + "/", { waitUntil: "networkidle0" });
+await pg.goto("http://127.0.0.1:" + port + "/app/", { waitUntil: "networkidle0" });
 await wait(1500);
 const s = await run("get_session");
 console.log("session:", s.session.mode, s.session.status, s.session.active_model);

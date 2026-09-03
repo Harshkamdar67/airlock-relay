@@ -4,7 +4,7 @@
 
 [![Test and deploy](https://github.com/Harshkamdar67/airlock-relay/actions/workflows/deploy.yml/badge.svg)](https://github.com/Harshkamdar67/airlock-relay/actions/workflows/deploy.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Live demo: **https://harshkamdar67.github.io/airlock-relay/**
+Live console: **https://harshkamdar67.github.io/airlock-relay/app/** · overview: https://harshkamdar67.github.io/airlock-relay/ · setup: https://harshkamdar67.github.io/airlock-relay/connect/
 Built for [The WebMCP Challenge](https://webmcp.devpost.com/) on top of [Airlock](https://github.com/Harshkamdar67/Airlock). What is new for the challenge is listed in [WEBMCP_CHALLENGE.md](WEBMCP_CHALLENGE.md).
 
 ![Airlock Relay, blocked session waiting for a proposal](docs/screenshot-blocked.png)
@@ -38,7 +38,7 @@ There is deliberately **no approve tool**. Approve and Reject exist only as butt
 
 ## Try it in two minutes
 
-1. Open the live URL in the **ChatGPT desktop app's browser**, or in **Chrome 149+** with `chrome://flags/#enable-webmcp-testing` enabled and Chrome relaunched (verified on Chrome 152.0.7977.65 on Windows, both through the flag and through `--enable-features=WebMCPTesting`). The pill in the top bar should say "WebMCP · 7 tools".
+1. Open the console URL (https://harshkamdar67.github.io/airlock-relay/app/) in the **ChatGPT desktop app's browser**, or in **Chrome 149+** with `chrome://flags/#enable-webmcp-testing` enabled and Chrome relaunched (verified on Chrome 152.0.7977.65 on Windows, both through the flag and through `--enable-features=WebMCPTesting`). The pill in the top bar should say "WebMCP · 7 tools".
 2. Ask the agent:
    > My Airlock coding session looks blocked. Inspect what happened, then get it running again on a route that is ready and does not spend metered usage. Do not change the active model until I approve the handoff in this page.
 3. Watch the Agent activity rail. The agent should read the session, events, and routes, then propose a handoff to a ready non-metered route such as GPT-5.6 Sol. If it tries to execute early, the page refuses.
@@ -75,7 +75,7 @@ Then copy `bridge/hooks.example.json` into `~/work/app/.claude/settings.local.js
 
 **Any other agent:** start with `--source generic` and POST `state` and `event` documents to `http://127.0.0.1:4783/relay/api/ingest` as described in [docs/ingest-contract.md](docs/ingest-contract.md).
 
-Then open `http://127.0.0.1:4783/` in the ChatGPT desktop browser or in Chrome with WebMCP enabled, and hand the page to the agent. Add `--notify https://ntfy.sh/your-topic` (or a Slack or Discord webhook) to get pushed when the session blocks; a desktop notification shows by default.
+Then open `http://127.0.0.1:4783/app/` in the ChatGPT desktop browser or in Chrome with WebMCP enabled, and hand the page to the agent. Add `--notify https://ntfy.sh/your-topic` (or a Slack or Discord webhook) to get pushed when the session blocks; a desktop notification shows by default.
 
 Windows note: Airlock's launcher is a Bash script, so the bridge runs Airlock commands through Git Bash, which Airlock already requires.
 

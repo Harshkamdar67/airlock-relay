@@ -126,6 +126,7 @@ function renderBar(ctx: UiContext, state: RelayState): string {
         <span class="crumb dim">${esc(state.session.profile)}</span>
       </div>
       <div class="bar-right">
+        <nav class="bar-nav" aria-label="Site"><a href="../">Overview</a><a href="../connect/">Connect</a></nav>
         ${mode}
         ${webmcp}
         ${scenario}
