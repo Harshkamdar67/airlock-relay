@@ -198,6 +198,47 @@ await sleep(700);
 await ring(".replay", 6);
 await moveCursor(".replay li:last-child");
 
+// overflow scenario
+await waitUntil(at("overflow_intro", 0.02));
+await ring(null);
+await page.evaluate(() => { const c = document.getElementById("rc-cursor"); c.style.left = "1250px"; c.style.top = "30px"; });
+await moveCursor('select[data-action="scenario"]');
+await waitUntil(at("overflow_intro", 0.3));
+await page.select('select[data-action="scenario"]', "context_overflow");
+await page.evaluate(() => { const c = document.getElementById("rc-cursor"); c.classList.remove("click"); void c.offsetWidth; c.classList.add("click"); });
+await installOverlay();
+await page.evaluate(() => { const p = document.getElementById("rc-agent"); if (p) p.querySelector(".msgs").innerHTML = ""; });
+await waitUntil(at("overflow_intro", 0.55));
+await ring(".status.blocked", 6);
+await moveCursor(".status.blocked");
+await waitUntil(at("overflow_intro", 0.8));
+await say("user", "Same thing for this session. Don't switch anything without me.", 12);
+
+await waitUntil(at("overflow_refuse", 0.02));
+await ring(null);
+await tool("get_session");
+await waitUntil(at("overflow_refuse", 0.12));
+await tool("get_routes");
+await waitUntil(at("overflow_refuse", 0.22));
+await tool("prepare_handoff", { target: "gpt-5.6-terra", reason: "Terra is ready, same provider, and not metered." });
+await ring("#activity-log li:last-child", 4);
+await waitUntil(at("overflow_refuse", 0.5));
+await say("agent", "Refused: <b>CONTEXT_EXCEEDS_ROUTE_WINDOW</b>. The session is 412k tokens and Terra takes 400k. Routes with room: Grok 4.6 (2M), Claude Opus 5 (1M), Claude Sonnet 5 (1M), Fable (metered).");
+
+await waitUntil(at("overflow_resume", 0.02));
+await ring(null);
+const prepared2 = await tool("prepare_handoff", { target: "grok-4.6", reason: "Grok 4.6 is ready, frontier tier, has a 2M-token window for the 412k conversation, and is not metered. Checkpoint cp_311 preserved." });
+await ring(".handoff .fromto", 6);
+await waitUntil(at("overflow_resume", 0.35));
+await clickWithCursor('button[data-action="approve"]');
+await waitUntil(at("overflow_resume", 0.55));
+const h2 = await tool("get_handoff");
+await tool("execute_handoff", { handoff_id: prepared2.handoff.id, approval_token: h2.handoff.approval_token });
+await ring(".status.running", 6);
+await moveCursor(".status.running");
+await waitUntil(at("overflow_resume", 0.85));
+await ring(null);
+
 // live
 await waitUntil(at("live", 0));
 await page.evaluate(() => document.getElementById("rc-agent")?.remove());

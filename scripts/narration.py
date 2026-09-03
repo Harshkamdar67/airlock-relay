@@ -26,6 +26,9 @@ SEGMENTS: list[tuple[str, str]] = [
     ("edit", "I'd rather stay on Claude. I change the target to Fable, which is metered, and approve. That issues a token bound to this exact revision. If I edit again, it's revoked."),
     ("execute", "The agent re-reads the proposal, sees my change and that I accepted metered usage, and executes. The session resumes from its checkpoint."),
     ("replay", "The replay shows who did what: the runtime, the agent, and me, on one shared object."),
+    ("overflow_intro", "Rate limits aren't the only way a session dies. Second scenario: a GPT 5.6 Sol conversation that outgrew its 400 thousand token window."),
+    ("overflow_refuse", "The agent proposes Terra. The page refuses: 412 thousand tokens don't fit a 400 thousand window, and it lists the routes that do. The tools understand the domain, not just the buttons."),
+    ("overflow_resume", "It proposes Grok 4.6 instead, with two million tokens of room. I approve, and the session resumes."),
     ("live", "The demo is seeded from a real Airlock router report. The same page runs live against a real session through a small loopback bridge."),
     ("outro", "WebMCP turns a runtime a person had to babysit into a workspace a person and an agent can operate together. Airlock Relay."),
 ]
