@@ -55,15 +55,26 @@ Every route also carries the provider's plan headroom (used percent of the 5-hou
 
 The hosted page runs in **demo mode**. Its data comes from [fixtures/airlock-diagnostics-2026-09-03.json](fixtures/airlock-diagnostics-2026-09-03.json), an export of the real `GET /diagnostics` report from an Airlock router on 2026-09-03. Events tagged `airlock` were copied verbatim; events tagged `scenario` were added, in the router's exact event shapes, to put the session into the blocked state the demo starts from. The runtime that "resumes" is simulated, and the session card's task, id, checkpoint, and worktree are invented for the demo; only the router data underneath is real. The page labels the origin of every event.
 
-**Live mode** runs against a real Airlock session on your machine:
+**Live mode** runs against a real Airlock session on your machine. This is the version built to be used, not only demoed:
 
 ```bash
 npm install && npm run build
-python bridge/relay.py --task "what the session is doing"    # inside an Airlock session, or pass --router-url
-# open http://127.0.0.1:4783/
+# from inside an Airlock session, in the project you are working on:
+python bridge/relay.py --task "what the session is doing" --notify https://ntfy.sh/your-topic --open
+# or from anywhere:
+python bridge/relay.py --router-url http://127.0.0.1:PORT --workdir ~/work/app
 ```
 
-The bridge is a small standard-library Python program. It serves the same build and a same-origin `relay/api/state` endpoint fed by the router's existing loopback `GET /diagnostics` and `GET /v1/models`. The Airlock router is not modified and stays bound to 127.0.0.1. In live mode the human's Approve click is also recorded by the bridge, which returns a one-shot nonce bound to the proposal, revision, and target. When the agent executes, the page sends that nonce and the bridge runs Airlock's own `airlock handoff set <from> <to>` only if it matches an approval it recorded itself; otherwise it refuses with a reason. The page reports exactly what the bridge did. This keeps the human's decision enforced outside the browser tab, not only inside it. A full orchestrator switch of a running Claude Code process crosses a process boundary that only the launcher can drive, so that part stays with Airlock's launcher and is documented as such.
+What the bridge does, in order:
+
+1. **Discovers the session.** The router URL comes from `AIRLOCK_SESSION_ROUTER_URL`; the Claude Code session id comes from the transcript directory Claude Code keeps for the working directory.
+2. **Feeds the page real facts.** A same-origin `relay/api/state` endpoint is fed by the router's existing loopback `GET /diagnostics` and `GET /v1/models`: profile, active model, cooldowns, every request and failover event, context size from the last request. The Airlock router is not modified and stays bound to 127.0.0.1.
+3. **Tells you when it blocks.** With `--notify`, the moment the router reports the root model or its provider on cooldown, the bridge POSTs a push notification (ntfy-style) with the Relay link. That is the 2 AM use case.
+4. **Records your approval itself.** Your Approve click is also sent to the bridge, which returns a one-shot nonce bound to the proposal, revision, and target. A page script cannot forge it.
+5. **Persists the decision with Airlock's own command.** When the agent executes with a matching nonce, the bridge runs `airlock handoff set <from> <to>`, so the approved order lives in Airlock's declared failover chain. Otherwise it refuses with a reason, and the page shows exactly what happened.
+6. **Resumes the conversation on the approved model.** After execution the bridge prepares `airlock hybrid <route> --resume <session-id>`. A human-only **Resume in a new terminal** button opens a terminal in the working directory running that command, which relaunches the same Claude Code conversation with the approved orchestrator. Airlock's launcher forwards Claude flags, so this is a supported path, and the button is gated by a second one-shot nonce. Exit the blocked session first; it is stuck anyway.
+
+Nothing here restarts a process behind your back. The agent inspects and proposes, you approve, Airlock's own commands do the work, and the page shows the receipts.
 
 ![Live mode against a real router](docs/screenshot-live-mode.png)
 

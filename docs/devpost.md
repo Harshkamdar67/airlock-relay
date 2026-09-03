@@ -56,7 +56,7 @@ After: the page declares what a session, a route, and a handoff are. The agent d
 
 ### Real data, honestly labelled
 
-The hosted demo is built from a real `GET /diagnostics` export from an Airlock router on 2026-09-03. Events copied verbatim are tagged `airlock`; events seeded to put the session into the blocked state are tagged `scenario`, in the router's exact event shapes; events produced by the page are tagged `relay`. The demo session card's task, checkpoint, and worktree are invented; the router data under it is real. A standard-library Python bridge runs the same page in live mode against a real Airlock session on your machine, fed by the router's existing loopback endpoints, and applies an approved handoff with Airlock's own `airlock handoff set` command once the human's approval is recorded on the bridge side.
+The hosted demo is built from a real `GET /diagnostics` export from an Airlock router on 2026-09-03. Events copied verbatim are tagged `airlock`; events seeded to put the session into the blocked state are tagged `scenario`, in the router's exact event shapes; events produced by the page are tagged `relay`. The demo session card's task, checkpoint, and worktree are invented; the router data under it is real. A standard-library Python bridge runs the same page in live mode against a real Airlock session on your machine. It discovers the router and the Claude Code session id, pushes a notification when the session blocks, records the human's approval itself, persists the approved order with Airlock's own `airlock handoff set`, and offers a human-only button that opens a terminal running `airlock hybrid <route> --resume <session-id>`, so the same conversation continues on the approved model. I built the live mode because I want to use it myself.
 
 ### What is new for the challenge
 
@@ -68,7 +68,7 @@ Chrome serialises whatever a tool's `execute` returns into a JSON string, so ret
 
 ### What's next
 
-Wire the bridge into Airlock's launcher so an approved handoff can restart the Claude Code process on the new route, expose Airlock's usage headroom per provider as a tool, and let the agent subscribe to events instead of polling.
+Ship the bridge as `airlock relay` inside Airlock itself, read live plan headroom from Claude Code's status line so the route data in live mode matches the demo, and let the agent subscribe to events instead of polling.
 
 ## Testing instructions (Devpost field)
 

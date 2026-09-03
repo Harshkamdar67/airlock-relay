@@ -5,6 +5,7 @@
 import type {
   AgentCall,
   Actor,
+  BridgeInfo,
   Handoff,
   HandoffResult,
   Preserve,
@@ -84,12 +85,13 @@ export class RelayStore {
   }
 
   /** Live mode: swap in fresh runtime facts while keeping the page-owned handoff and logs. */
-  mergeRuntime(session: Partial<SessionState>, routes: Route[], events: RelayEvent[]): void {
+  mergeRuntime(session: Partial<SessionState>, routes: Route[], events: RelayEvent[], bridge?: BridgeInfo): void {
     this.state = {
       ...this.state,
       session: { ...this.state.session, ...session },
       routes,
       events,
+      ...(bridge ? { bridge } : {}),
     };
     this.nextEventId = events.reduce((m, e) => Math.max(m, e.id), 0) + 1;
     this.emit();
@@ -333,6 +335,13 @@ export class RelayStore {
 
   /** Re-emit without changes so time-based UI (countdowns) can refresh. */
   touch(): void {
+    this.emit();
+  }
+
+  /** Live mode: update what the bridge reports about resuming. */
+  setBridgeResume(resumeCommand: string | null, resumeStatus: string | null): void {
+    if (!this.state.bridge) return;
+    this.state = { ...this.state, bridge: { ...this.state.bridge, resumeCommand, resumeStatus } };
     this.emit();
   }
 

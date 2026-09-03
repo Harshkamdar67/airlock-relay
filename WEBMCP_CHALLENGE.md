@@ -11,7 +11,7 @@
 | Control room UI | Session, routes, editable handoff proposal with Approve and Reject, agent activity rail, runtime events, replay. | `src/ui/` |
 | Airlock adapter | Turns a router diagnostics report into route availability and readable events. Used by both demo and live modes. | `src/runtime/airlock-adapter.ts` |
 | Demo sessions | Two deterministic scenarios (rate limit, context overflow) built from router-shaped diagnostics reports, with real and seeded events labelled, plus per-provider plan headroom on every route. | `src/runtime/demo.ts`, `fixtures/` |
-| Live bridge | Loopback Python bridge feeding the page from a running Airlock router and applying approved handoffs with Airlock's own command. | `bridge/relay.py`, `bridge/test_relay.py` |
+| Live bridge | Loopback Python bridge: discovers the router and the Claude Code session id, pushes a notification when the session blocks, records approvals with one-shot nonces, persists approved handoffs with Airlock's own command, and opens a terminal that resumes the same conversation on the approved model. | `bridge/relay.py`, `bridge/test_relay.py` |
 | Scripted walkthrough | A no-agent path through the same tool entry point, for browsers without WebMCP. | `src/webmcp/walkthrough.ts` |
 | Tests | 22 Vitest tests on policy (metered, cooldown, context window), approval, staleness, idempotency, and attribution; 9 bridge tests including the approval nonce; a Chrome smoke test that drives the tools through `executeTool`. | `tests/`, `bridge/test_relay.py`, `scripts/webmcp-smoke.mjs` |
 
@@ -27,4 +27,4 @@ No Airlock source is vendored here. The Airlock repository was not modified for 
 
 - The hosted demo simulates the runtime after loading real router data. The page labels every event as `airlock` (copied from a real report), `scenario` (seeded), or `relay` (produced by this page).
 - The demo session card's task, id, checkpoint, and worktree are invented. The events, cooldown lists, and usage totals underneath come from the router export.
-- In live mode the bridge reports real router state, records the human's approval itself, and persists the approved chain order with Airlock's own command only when the page presents the matching one-shot nonce. It does not restart a running Claude Code process; that is the launcher's job in Airlock and is out of scope here.
+- In live mode the bridge reports real router state, records the human's approval itself, and persists the approved chain order with Airlock's own command only when the page presents the matching one-shot nonce. Resuming the conversation on the new model is done by opening a terminal that runs Airlock's own launcher with Claude Code's `--resume`; the bridge never kills or restarts the blocked process itself.

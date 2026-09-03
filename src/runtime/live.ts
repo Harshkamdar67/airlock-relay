@@ -7,7 +7,7 @@ import type { RelayStore } from "./state";
 import type { RelayState } from "./types";
 
 export interface BridgeState {
-  bridge: { version: string; router_url: string; ready: boolean };
+  bridge: { version: string; router_url: string; ready: boolean; session_id?: string | null; resume_command?: string | null; resume_status?: string | null };
   session: {
     id: string;
     task: string;
@@ -62,7 +62,12 @@ export function applyBridgeState(store: RelayStore, bridge: BridgeState): void {
   // Keep relay-produced events (proposals, approvals) after the live ones.
   const relayEvents = current.events.filter((e) => e.source === "relay");
   const merged = [...events, ...relayEvents.map((e, i) => ({ ...e, id: events.length + i + 1 }))];
-  store.mergeRuntime(session, routes, merged);
+  store.mergeRuntime(session, routes, merged, {
+    routerUrl: bridge.bridge.router_url,
+    sessionId: bridge.bridge.session_id ?? null,
+    resumeCommand: bridge.bridge.resume_command ?? current.bridge?.resumeCommand ?? null,
+    resumeStatus: bridge.bridge.resume_status ?? current.bridge?.resumeStatus ?? null,
+  });
 }
 
 export async function connectLive(store: RelayStore, intervalMs = 2500): Promise<boolean> {

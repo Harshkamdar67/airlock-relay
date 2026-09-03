@@ -20,6 +20,20 @@ const ctx: UiContext = {
     if (store.get().mode !== "demo") return;
     store.replace(buildDemoState(new Date(), scenario));
   },
+  onResume: () => {
+    const state = store.get();
+    const h = state.handoff;
+    if (state.mode !== "live" || !h || h.status !== "executed") return;
+    void postJson("./relay/api/resume", { handoff_id: h.id, nonce: resumeNonces.get(h.id) ?? "" })
+      .then((body) => {
+        const launched = body.launched === true;
+        const command = typeof body.command === "string" ? body.command : state.bridge?.resumeCommand ?? "";
+        const status = launched ? `Opened a terminal running \`${command}\`` : `Not launched: ${String(body.reason ?? (body.dry_run ? "dry run" : "unknown"))}`;
+        store.setBridgeResume(command || null, status);
+        store.recordBridgeResult(status, body);
+      })
+      .catch((error: unknown) => store.recordBridgeResult(`Bridge unreachable: ${error instanceof Error ? error.message : String(error)}`));
+  },
   onWalkthrough: () => {
     if (ctx.walkthroughRunning) return;
     ctx.walkthroughRunning = true;
@@ -56,6 +70,7 @@ setInterval(() => {
 // `airlock handoff set` unless the nonce matches an approval it recorded for
 // the same proposal, revision, and target.
 const bridgeNonces = new Map<string, string>();
+const resumeNonces = new Map<string, string>();
 const postedApprovals = new Set<string>();
 const postedHandoffs = new Set<string>();
 async function postJson(path: string, body: unknown): Promise<Record<string, unknown>> {
@@ -79,6 +94,8 @@ store.subscribe((state) => {
         const applied = body.applied === true;
         const command = typeof body.command === "string" ? body.command : "";
         const summary = applied ? `Bridge ran \`${command}\`` : `Bridge did not apply ${h.id}: ${String(body.reason ?? "unknown")}${command ? ` (run \`${command}\` yourself)` : ""}`;
+        if (typeof body.resume_nonce === "string") resumeNonces.set(h.id, body.resume_nonce);
+        if (typeof body.resume_command === "string") store.setBridgeResume(body.resume_command, null);
         store.recordBridgeResult(summary, body);
       })
       .catch((error: unknown) => store.recordBridgeResult(`Bridge unreachable: ${error instanceof Error ? error.message : String(error)}`));

@@ -136,9 +136,22 @@ export interface AgentCall {
 
 export type RelayMode = "demo" | "live";
 
+/** Live mode only: what the local bridge knows and can do for this session. */
+export interface BridgeInfo {
+  routerUrl: string;
+  /** Claude Code session id discovered from the transcript directory, if any. */
+  sessionId: string | null;
+  /** Exact command the bridge will run to resume on the approved route, once one is executed. */
+  resumeCommand: string | null;
+  /** Last resume attempt outcome, human readable. */
+  resumeStatus: string | null;
+}
+
 export interface RelayState {
   mode: RelayMode;
   scenario: Scenario;
+  /** Present only in live mode. */
+  bridge?: BridgeInfo;
   session: SessionState;
   routes: Route[];
   events: RelayEvent[];
